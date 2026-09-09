@@ -70,6 +70,31 @@ check("Empty radio search card is compact", layout.radioHeight < 125, `${layout.
 check("Bottom navigation is removed", layout.bottomNavRemoved);
 check("Side drawer starts fully closed", !layout.drawerOpen && layout.drawerRight <= 0, JSON.stringify({ drawerRight: layout.drawerRight, drawerOpen: layout.drawerOpen }));
 
+const inputBorders = await evaluate(`(async () => {
+  const search = document.querySelector('.search-input');
+  const rules = [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules]);
+  const declaredWidth = (selector) => {
+    const style = rules.find((rule) => rule.selectorText === selector)?.style;
+    return parseFloat(style?.borderTopWidth || style?.border?.split(' ')[0]);
+  };
+  const searchBaseColor = getComputedStyle(search).borderTopColor;
+  search.focus();
+  await new Promise((resolve) => setTimeout(resolve, 220));
+  return {
+    searchWidth: declaredWidth('.search-input'),
+    noteWidth: declaredWidth('.note-input'),
+    dateWidth: declaredWidth('.date-input'),
+    radioWidth: declaredWidth('.radio-card'),
+    entryWidth: declaredWidth('.entry-card'),
+    searchBaseColor,
+    searchFocusColor: getComputedStyle(search).borderTopColor,
+    entryInteractiveBorder: rules.find((rule) => rule.selectorText === '.entry-card:hover, .entry-card:focus-within')?.style.borderColor
+  };
+})()`);
+check("Primary input and card borders use the requested subtle thickness", inputBorders.searchWidth === 1.5 && inputBorders.noteWidth === 1.5 && inputBorders.dateWidth === 1.25 && inputBorders.radioWidth === 1.25 && inputBorders.entryWidth === 1.25, JSON.stringify(inputBorders));
+check("Focused search border becomes clearer", inputBorders.searchBaseColor !== inputBorders.searchFocusColor, JSON.stringify(inputBorders));
+check("Journal cards define a clearer interactive border", inputBorders.entryInteractiveBorder === "var(--line-strong)", JSON.stringify(inputBorders));
+
 const drawerOpened = await evaluate(`(() => {
   document.querySelector('#menuButton').click();
   return document.body.classList.contains('drawer-open') && document.querySelector('#sideDrawer').getAttribute('aria-hidden') === 'false';
@@ -128,6 +153,15 @@ check("Entry survives reload", persisted.title === "About You" && persisted.note
 check("Language switches globally", persisted.englishHero === "What song came to mind today?", persisted.englishHero);
 check("English tagline is exact", await evaluate("document.querySelector('.eyebrow')?.textContent") === "One song a day");
 check("Missing preview is handled", persisted.previewDisabled && persisted.previewMessage === "Preview unavailable.", persisted.previewMessage);
+
+const noteFocus = await evaluate(`(async () => {
+  const note = document.querySelector('.note-input');
+  const baseColor = getComputedStyle(note).borderTopColor;
+  note.focus();
+  await new Promise((resolve) => setTimeout(resolve, 220));
+  return { baseColor, focusColor: getComputedStyle(note).borderTopColor };
+})()`);
+check("Focused journal textarea becomes clearer", noteFocus.baseColor !== noteFocus.focusColor, JSON.stringify(noteFocus));
 
 const modal = await evaluate(`(() => {
   document.querySelector('.open-artwork').click();
@@ -208,9 +242,9 @@ const pwa = await evaluate(`(async () => {
   const data = await fetch(manifest).then((response) => response.json());
   const iconResponses = await Promise.all([...data.icons.map((icon) => icon.src), appleIcon].map((source) => fetch(source).then((response) => response.ok)));
   const serviceWorker = await fetch('./sw.js').then((response) => response.text());
-  return { manifest, favicon, appleIcon, iconResponses, cacheV6: serviceWorker.includes('moodio-shell-v6'), registration: Boolean(await navigator.serviceWorker.getRegistration()) };
+  return { manifest, favicon, appleIcon, iconResponses, cacheV7: serviceWorker.includes('moodio-shell-v7'), registration: Boolean(await navigator.serviceWorker.getRegistration()) };
 })()`);
-check("PWA manifest, icons, and current app cache load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.cacheV6 && pwa.registration, JSON.stringify(pwa));
+check("PWA manifest, icons, and current app cache load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.cacheV7 && pwa.registration, JSON.stringify(pwa));
 
 // The public Apple endpoint can occasionally be unavailable; report it separately.
 const search = await evaluate(`(async () => {
