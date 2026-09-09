@@ -1,0 +1,8 @@
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.chrome-test/
+.chrome-cdp*/
+*-mobile.png
+smoke-report.json
