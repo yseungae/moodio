@@ -2,6 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const debuggerPort = process.env.CHROME_DEBUG_PORT || "9222";
+const appUrl = process.env.MOODIO_BASE_URL || "http://127.0.0.1:4173/";
 const targets = await fetch(`http://127.0.0.1:${debuggerPort}/json`).then((response) => response.json());
 const target = targets.find((item) => item.type === "page");
 if (!target) throw new Error("Chrome page target not found");
@@ -40,7 +41,7 @@ await send("Page.enable");
 await send("Runtime.enable");
 await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
 await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
-await navigate("http://127.0.0.1:4173/");
+await navigate(appUrl);
 
 const checks = [];
 function check(name, passed, details = "") {
@@ -126,7 +127,7 @@ const persisted = await evaluate(`({
 check("Entry survives reload", persisted.title === "About You" && persisted.note.includes("survives"), JSON.stringify(persisted));
 check("Language switches globally", persisted.englishHero === "What song came to mind today?", persisted.englishHero);
 check("English tagline is exact", await evaluate("document.querySelector('.eyebrow')?.textContent") === "One song a day");
-check("Missing preview is handled", persisted.previewDisabled && persisted.previewMessage === "Preview unavailable", persisted.previewMessage);
+check("Missing preview is handled", persisted.previewDisabled && persisted.previewMessage === "Preview unavailable.", persisted.previewMessage);
 
 const modal = await evaluate(`(() => {
   document.querySelector('.open-artwork').click();
@@ -198,7 +199,7 @@ const translatedShare = await evaluate(`(() => {
 })()`);
 check("Language change preserves read-only share page", translatedShare.title === "Seungae's September" && translatedShare.sharedLabel.includes("공유된 음악 일기") && translatedShare.editButtons === 0 && translatedShare.navHidden, JSON.stringify(translatedShare));
 
-await navigate("http://127.0.0.1:4173/");
+await navigate(appUrl);
 await delay(500);
 const pwa = await evaluate(`(async () => {
   const manifest = document.querySelector('link[rel=manifest]')?.getAttribute('href');
@@ -208,7 +209,7 @@ const pwa = await evaluate(`(async () => {
   const iconResponses = await Promise.all([...data.icons.map((icon) => icon.src), appleIcon].map((source) => fetch(source).then((response) => response.ok)));
   return { manifest, favicon, appleIcon, iconResponses, registration: Boolean(await navigator.serviceWorker.getRegistration()) };
 })()`);
-check("PWA manifest and versioned radio icons load", pwa.manifest === "./manifest.webmanifest?v=4" && pwa.favicon.endsWith("?v=4") && pwa.appleIcon.includes("icon-180.png?v=4") && pwa.iconResponses.every(Boolean) && pwa.registration, JSON.stringify(pwa));
+check("PWA manifest and versioned radio icons load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.registration, JSON.stringify(pwa));
 
 // The public Apple endpoint can occasionally be unavailable; report it separately.
 const search = await evaluate(`(async () => {
@@ -239,6 +240,49 @@ if (search.results > 0) {
   check("Selected search result exposes Preview", saveFlow.previewAvailable, JSON.stringify(saveFlow));
   check("Save and edit keep one song per day", saveFlow.firstNote.startsWith("Saved") && saveFlow.secondNote.startsWith("Edited") && saveFlow.count === 2, JSON.stringify(saveFlow));
 }
+
+await send("Network.enable");
+await send("Emulation.setUserAgentOverride", {
+  userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1",
+  platform: "iPhone"
+});
+await navigate(appUrl);
+const iosSearch = await evaluate(`(async () => {
+  document.querySelector('#changeSong')?.click();
+  performance.clearResourceTimings();
+  const input = document.querySelector('#musicSearch');
+  input.value = 'the 1975';
+  document.querySelector('#searchForm').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+  const results = document.querySelectorAll('.result-item').length;
+  const usedMobileProvider = performance.getEntriesByType('resource').some((entry) => entry.name.startsWith('https://api.deezer.com/search'));
+  document.querySelector('.result-item')?.click();
+  return {
+    results,
+    usedMobileProvider,
+    previewAvailable: !document.querySelector('.play-button')?.disabled,
+    callbacksRemaining: Object.keys(window).filter((key) => key.startsWith('moodioMusicCallback')).length,
+    scriptsRemaining: document.querySelectorAll('script[src*="itunes.apple.com/search"], script[src*="api.deezer.com/search"]').length
+  };
+})()`);
+check("iPhone Safari path uses stable HTTPS JSONP search", iosSearch.results > 0 && iosSearch.usedMobileProvider, JSON.stringify(iosSearch));
+check("iPhone search keeps Preview and cleans JSONP resources", iosSearch.previewAvailable && iosSearch.callbacksRemaining === 0 && iosSearch.scriptsRemaining === 0, JSON.stringify(iosSearch));
+
+const rapidSearch = await evaluate(`(async () => {
+  document.querySelector('#changeSong')?.click();
+  const input = document.querySelector('#musicSearch');
+  input.value = 'radiohead';
+  document.querySelector('#searchForm').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  input.value = 'about you';
+  document.querySelector('#searchForm').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+  return {
+    firstTitle: document.querySelector('.result-title')?.textContent || '',
+    callbacksRemaining: Object.keys(window).filter((key) => key.startsWith('moodioMusicCallback')).length,
+    scriptsRemaining: document.querySelectorAll('script[src*="api.deezer.com/search"]').length
+  };
+})()`);
+check("Rapid searches keep only the latest JSONP request", rapidSearch.firstTitle.toLowerCase().includes("about") && rapidSearch.callbacksRemaining === 0 && rapidSearch.scriptsRemaining === 0, JSON.stringify(rapidSearch));
 
 const report = { passed: checks.filter((item) => item.passed).length, total: checks.length, checks };
 await writeFile(resolve("smoke-report.json"), JSON.stringify(report, null, 2));

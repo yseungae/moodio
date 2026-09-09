@@ -188,7 +188,9 @@ function bindSearchEvents() {
           renderHome();
         });
       });
-    } catch {
+    } catch (error) {
+      if (error?.code === "SEARCH_CANCELLED") return;
+      console.error("[Moodio] Music search failed", error);
       results.innerHTML = `<p class="empty-inline">${escapeHtml(t("searchError"))}</p>`;
     }
   });

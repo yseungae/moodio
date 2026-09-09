@@ -57,21 +57,16 @@ function createIcon(size) {
     if (roundedRect(x, y, 70, 150, 442, 402, 48)) color = palette.light;
     if (roundedRect(x, y, 88, 168, 424, 384, 30)) color = palette.body;
 
-    if (roundedRect(x, y, 104, 187, 408, 243, 14)) color = palette.dim;
-    if (roundedRect(x, y, 111, 194, 401, 236, 8)) color = palette.display;
+    if (roundedRect(x, y, 104, 187, 408, 239, 13)) color = palette.dim;
+    if (roundedRect(x, y, 111, 194, 401, 232, 6)) color = palette.display;
 
-    if (line(x, y, 130, 215, 374, 215, 5)) color = palette.muted;
-    for (const [markerX, markerTop, markerBottom] of [[160, 204, 226], [220, 208, 222], [280, 204, 226], [340, 208, 222]]) {
-      if (line(x, y, markerX, markerTop, markerX, markerBottom, 5)) color = palette.muted;
+    if (roundedRect(x, y, 108, 266, 310, 362, 18)) color = palette.display;
+    for (const speakerY of [290, 314, 338]) {
+      if (line(x, y, 135, speakerY, 283, speakerY, 9)) color = palette.muted;
     }
-    if (circle(x, y, 386, 215, 6)) color = palette.light;
 
-    const mSegments = [[113, 350, 113, 268], [113, 268, 160, 320], [160, 320, 207, 268], [207, 268, 207, 350]];
-    if (mSegments.some(([x1, y1, x2, y2]) => line(x, y, x1, y1, x2, y2, 19))) color = palette.light;
-
-    if (circle(x, y, 336, 307, 50)) color = palette.light;
-    if (circle(x, y, 336, 307, 36)) color = palette.display;
-    if (line(x, y, 336, 307, 358, 287, 8)) color = palette.muted;
+    if (circle(x, y, 361, 314, 44)) color = palette.light;
+    if (circle(x, y, 361, 314, 30)) color = palette.display;
     return color;
   }
 
