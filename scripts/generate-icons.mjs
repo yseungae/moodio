@@ -22,25 +22,83 @@ function chunk(type, data) {
 }
 
 function createIcon(size) {
-  const rows = Buffer.alloc((size * 4 + 1) * size);
-  const center = size / 2;
-  const outer = size * .29;
-  const ring = size * .043;
-  const hub = size * .07;
-  const needleEnd = { x: center + size * .2, y: center - size * .15 };
+  const sampleScale = 3;
+  const sampleSize = size * sampleScale;
+  const samples = new Uint8Array(sampleSize * sampleSize * 4);
+  const palette = {
+    background: [41, 40, 38, 255],
+    body: [51, 50, 48, 255],
+    display: [36, 35, 33, 255],
+    light: [235, 232, 224, 255],
+    muted: [170, 166, 158, 255],
+    dim: [145, 141, 133, 255]
+  };
 
+  const scale = sampleSize / 512;
+  const roundedRect = (x, y, left, top, right, bottom, radius) => {
+    const nearestX = Math.max(left + radius, Math.min(x, right - radius));
+    const nearestY = Math.max(top + radius, Math.min(y, bottom - radius));
+    return Math.hypot(x - nearestX, y - nearestY) <= radius;
+  };
+  const line = (x, y, x1, y1, x2, y2, width) => {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lengthSquared = dx * dx + dy * dy;
+    const position = Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / lengthSquared));
+    return Math.hypot(x - (x1 + position * dx), y - (y1 + position * dy)) <= width / 2;
+  };
+  const circle = (x, y, centerX, centerY, radius) => Math.hypot(x - centerX, y - centerY) <= radius;
+
+  function paint(x, y) {
+    let color = palette.background;
+
+    if (line(x, y, 122, 156, 187, 91, 18)) color = palette.muted;
+
+    if (roundedRect(x, y, 70, 150, 442, 402, 48)) color = palette.light;
+    if (roundedRect(x, y, 88, 168, 424, 384, 30)) color = palette.body;
+
+    if (roundedRect(x, y, 104, 187, 408, 243, 14)) color = palette.dim;
+    if (roundedRect(x, y, 111, 194, 401, 236, 8)) color = palette.display;
+
+    if (line(x, y, 130, 215, 374, 215, 5)) color = palette.muted;
+    for (const [markerX, markerTop, markerBottom] of [[160, 204, 226], [220, 208, 222], [280, 204, 226], [340, 208, 222]]) {
+      if (line(x, y, markerX, markerTop, markerX, markerBottom, 5)) color = palette.muted;
+    }
+    if (circle(x, y, 386, 215, 6)) color = palette.light;
+
+    const mSegments = [[113, 350, 113, 268], [113, 268, 160, 320], [160, 320, 207, 268], [207, 268, 207, 350]];
+    if (mSegments.some(([x1, y1, x2, y2]) => line(x, y, x1, y1, x2, y2, 19))) color = palette.light;
+
+    if (circle(x, y, 336, 307, 50)) color = palette.light;
+    if (circle(x, y, 336, 307, 36)) color = palette.display;
+    if (line(x, y, 336, 307, 358, 287, 8)) color = palette.muted;
+    return color;
+  }
+
+  for (let y = 0; y < sampleSize; y += 1) {
+    for (let x = 0; x < sampleSize; x += 1) {
+      const color = paint((x + .5) / scale, (y + .5) / scale);
+      samples.set(color, (y * sampleSize + x) * 4);
+    }
+  }
+
+  const rows = Buffer.alloc((size * 4 + 1) * size);
   for (let y = 0; y < size; y += 1) {
     const row = y * (size * 4 + 1);
     rows[row] = 0;
     for (let x = 0; x < size; x += 1) {
-      const dx = x - center, dy = y - center;
-      const distance = Math.hypot(dx, dy);
-      const lineDistance = Math.abs((needleEnd.y - center) * x - (needleEnd.x - center) * y + needleEnd.x * center - needleEnd.y * center) / Math.hypot(needleEnd.y - center, needleEnd.x - center);
-      const alongNeedle = x >= center - size * .015 && x <= needleEnd.x + size * .015 && y <= center + size * .015 && y >= needleEnd.y - size * .015;
-      const light = Math.abs(distance - outer) < ring / 2 || distance < hub || (alongNeedle && lineDistance < size * .015);
-      const color = light ? [239, 237, 231, 255] : [43, 42, 40, 255];
       const pixel = row + 1 + x * 4;
-      rows.set(color, pixel);
+      for (let channel = 0; channel < 4; channel += 1) {
+        let total = 0;
+        for (let sampleY = 0; sampleY < sampleScale; sampleY += 1) {
+          for (let sampleX = 0; sampleX < sampleScale; sampleX += 1) {
+            const sourceX = x * sampleScale + sampleX;
+            const sourceY = y * sampleScale + sampleY;
+            total += samples[(sourceY * sampleSize + sourceX) * 4 + channel];
+          }
+        }
+        rows[pixel + channel] = Math.round(total / (sampleScale * sampleScale));
+      }
     }
   }
 
@@ -49,4 +107,4 @@ function createIcon(size) {
   return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(rows, { level: 9 })), chunk("IEND", Buffer.alloc(0))]);
 }
 
-for (const size of [192, 512]) writeFileSync(resolve(root, `assets/icon-${size}.png`), createIcon(size));
+for (const size of [180, 192, 512]) writeFileSync(resolve(root, `assets/icon-${size}.png`), createIcon(size));

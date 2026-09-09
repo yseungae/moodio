@@ -1,4 +1,4 @@
-const CACHE_NAME = "moodio-shell-v2";
+const CACHE_NAME = "moodio-shell-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -8,10 +8,11 @@ const APP_SHELL = [
   "./js/storage.js",
   "./js/musicService.js",
   "./js/shareService.js",
-  "./manifest.webmanifest",
-  "./assets/icon.svg",
-  "./assets/icon-192.png",
-  "./assets/icon-512.png"
+  "./manifest.webmanifest?v=3",
+  "./assets/icon.svg?v=3",
+  "./assets/icon-180.png?v=3",
+  "./assets/icon-192.png?v=3",
+  "./assets/icon-512.png?v=3"
 ];
 
 self.addEventListener("install", (event) => {

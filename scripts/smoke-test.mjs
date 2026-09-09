@@ -158,8 +158,15 @@ check("Language change preserves read-only share page", translatedShare.title ==
 
 await navigate("http://127.0.0.1:4173/");
 await delay(500);
-const pwa = await evaluate(`(async () => ({ manifest: document.querySelector('link[rel=manifest]')?.getAttribute('href'), registration: Boolean(await navigator.serviceWorker.getRegistration()) }))()`);
-check("PWA manifest and service worker load", pwa.manifest === "./manifest.webmanifest" && pwa.registration, JSON.stringify(pwa));
+const pwa = await evaluate(`(async () => {
+  const manifest = document.querySelector('link[rel=manifest]')?.getAttribute('href');
+  const favicon = document.querySelector('link[rel=icon]')?.getAttribute('href');
+  const appleIcon = document.querySelector('link[rel=apple-touch-icon]')?.getAttribute('href');
+  const data = await fetch(manifest).then((response) => response.json());
+  const iconResponses = await Promise.all([...data.icons.map((icon) => icon.src), appleIcon].map((source) => fetch(source).then((response) => response.ok)));
+  return { manifest, favicon, appleIcon, iconResponses, registration: Boolean(await navigator.serviceWorker.getRegistration()) };
+})()`);
+check("PWA manifest and versioned radio icons load", pwa.manifest === "./manifest.webmanifest?v=3" && pwa.favicon.endsWith("?v=3") && pwa.appleIcon.includes("icon-180.png?v=3") && pwa.iconResponses.every(Boolean) && pwa.registration, JSON.stringify(pwa));
 
 // The public Apple endpoint can occasionally be unavailable; report it separately.
 const search = await evaluate(`(async () => {
