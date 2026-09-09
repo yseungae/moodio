@@ -1,5 +1,6 @@
 export const translations = {
   ko: {
+    deleteEntry: "기록 삭제", deleteEntryTitle: "이 기록을 삭제할까요?", deleteEntryDescription: "삭제한 기록은 복구할 수 없어요.", cancel: "취소", delete: "삭제", entryDeleted: "기록을 삭제했어요.",
     language: "언어", update: "업데이트", openMenu: "메뉴 열기", closeMenu: "메뉴 닫기", home: "홈", archive: "지난 기록", settings: "설정",
     appTagline: "하루 한 곡", heroTitle: "오늘은 어떤 노래가 떠올랐나요?", selectDate: "기록할 날짜",
     searchPlaceholder: "노래, 아티스트 검색", search: "검색", radioHint: "마음에 머문 곡을 찾아보세요.",
@@ -19,6 +20,7 @@ export const translations = {
     dateLocale: "ko-KR"
   },
   en: {
+    deleteEntry: "Delete entry", deleteEntryTitle: "Delete this entry?", deleteEntryDescription: "This can’t be undone.", cancel: "Cancel", delete: "Delete", entryDeleted: "Entry deleted.",
     language: "Language", update: "Update", openMenu: "Open menu", closeMenu: "Close menu", home: "Home", archive: "Journal", settings: "Settings",
     appTagline: "One song a day", heroTitle: "What song came to mind today?", selectDate: "Journal date",
     searchPlaceholder: "Search songs or artists", search: "Search", radioHint: "Find the song that stayed with you.",

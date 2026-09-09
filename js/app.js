@@ -1,5 +1,5 @@
 import { createTranslator, translations } from "./i18n.js";
-import { getEntry, getEntriesForMonth, getSettings, saveEntry, saveSettings } from "./storage.js";
+import { deleteEntry, getEntry, getEntriesForMonth, getSettings, saveEntry, saveSettings } from "./storage.js";
 import { searchMusic } from "./musicService.js";
 import { createShareUrl, readShareFromHash } from "./shareService.js";
 
@@ -30,6 +30,7 @@ const state = {
   searchResults: [],
   expandedDates: new Set(),
   playingUrl: "",
+  editOrigin: null,
   sharedSnapshot: null,
   sharedError: false
 };
@@ -166,6 +167,18 @@ function noteTemplate(isExisting) {
       <label class="note-label" for="entryNote">${escapeHtml(t("noteLabel"))}</label>
       <textarea id="entryNote" class="note-input" placeholder="${escapeAttr(t("notePlaceholder"))}">${escapeHtml(state.note)}</textarea>
       <button id="saveEntry" class="primary-button save-button" type="button">${escapeHtml(isExisting ? t("updateEntry") : t("save"))}</button>
+      ${isExisting ? `
+        <button id="deleteEntryButton" class="delete-entry-button" type="button">${escapeHtml(t("deleteEntry"))}</button>
+        <dialog id="deleteEntryDialog" class="confirm-dialog" aria-labelledby="deleteDialogTitle" aria-describedby="deleteDialogDescription">
+          <div class="confirm-dialog-copy">
+            <h2 id="deleteDialogTitle">${escapeHtml(t("deleteEntryTitle"))}</h2>
+            <p id="deleteDialogDescription">${escapeHtml(t("deleteEntryDescription"))}</p>
+          </div>
+          <div class="confirm-dialog-actions">
+            <button id="cancelDeleteEntry" class="dialog-button dialog-cancel" type="button">${escapeHtml(t("cancel"))}</button>
+            <button id="confirmDeleteEntry" class="dialog-button dialog-delete" type="button">${escapeHtml(t("delete"))}</button>
+          </div>
+        </dialog>` : ""}
     </div>`;
 }
 
@@ -213,6 +226,11 @@ function bindSelectedSongEvents() {
     renderHome();
   });
   document.querySelector("#saveEntry")?.addEventListener("click", saveCurrentEntry);
+  const deleteDialog = document.querySelector("#deleteEntryDialog");
+  document.querySelector("#deleteEntryButton")?.addEventListener("click", () => deleteDialog?.showModal());
+  document.querySelector("#cancelDeleteEntry")?.addEventListener("click", () => deleteDialog?.close());
+  document.querySelector("#confirmDeleteEntry")?.addEventListener("click", deleteCurrentEntry);
+  deleteDialog?.addEventListener("click", (event) => { if (event.target === deleteDialog) deleteDialog.close(); });
   document.querySelector(".play-button")?.addEventListener("click", togglePreview);
   document.querySelectorAll(".open-artwork").forEach((button) => button.addEventListener("click", () => openArtwork(button.dataset.artwork, button.dataset.title)));
 }
@@ -224,6 +242,7 @@ function onDateChange(event) {
     return;
   }
   state.selectedDate = event.target.value;
+  state.editOrigin = null;
   loadEntryForDate(state.selectedDate, true);
   renderHome();
 }
@@ -250,6 +269,28 @@ function saveCurrentEntry() {
   });
   showToast(previous ? t("edited") : t("saved"));
   renderHome();
+}
+
+function deleteCurrentEntry() {
+  const returnMonth = state.editOrigin;
+  const wasDeleted = deleteEntry(state.selectedDate);
+  document.querySelector("#deleteEntryDialog")?.close();
+  stopPreview();
+  state.selectedSong = null;
+  state.note = "";
+  state.searchResults = [];
+  state.editOrigin = null;
+
+  if (returnMonth) {
+    state.archiveYear = returnMonth.year;
+    state.archiveMonth = returnMonth.month;
+    state.route = "archive";
+  } else {
+    state.route = "home";
+  }
+
+  render();
+  if (wasDeleted) showToast(t("entryDeleted"));
 }
 
 function renderArchive() {
@@ -303,9 +344,10 @@ function bindEntryCardEvents() {
     if (state.route === "archive") renderArchive();
   }));
   document.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => {
+    state.editOrigin = { year: state.archiveYear, month: state.archiveMonth };
     state.selectedDate = button.dataset.edit;
     loadEntryForDate(state.selectedDate, false);
-    navigate("home");
+    navigate("home", { preserveEditOrigin: true });
   }));
 }
 
@@ -416,8 +458,9 @@ function applyStaticTranslations() {
   document.querySelectorAll("[data-language]").forEach((element) => element.classList.toggle("active", element.dataset.language === state.language));
 }
 
-function navigate(route) {
+function navigate(route, { preserveEditOrigin = false } = {}) {
   if (!['home', 'archive', 'settings'].includes(route)) return;
+  if (!preserveEditOrigin) state.editOrigin = null;
   if (route === "archive" && state.route !== "archive") {
     const current = new Date();
     state.archiveYear = current.getFullYear();

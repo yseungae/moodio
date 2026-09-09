@@ -292,6 +292,39 @@ h3 { margin: 0; font-size: 18px; font-weight: 580; letter-spacing: -.02em; }
 .primary-button { border: 1px solid var(--paper); background: var(--paper); color: var(--ink-deep); }
 .secondary-button { border: 1px solid var(--line-strong); background: transparent; color: var(--paper); }
 .save-button { width: 100%; margin-top: 12px; }
+.delete-entry-button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  border: 1px solid rgba(238, 235, 226, .13);
+  border-radius: 13px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.delete-entry-button:hover { border-color: var(--line-strong); color: var(--paper); }
+
+.confirm-dialog {
+  width: min(calc(100% - 32px), 380px);
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: #2d2c2a;
+  color: var(--paper);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
+}
+.confirm-dialog::backdrop { background: rgba(16, 15, 14, .72); backdrop-filter: blur(5px); }
+.confirm-dialog-copy { padding: 24px 22px 18px; }
+.confirm-dialog-copy h2 { margin: 0 0 8px; font-size: 20px; font-weight: 620; letter-spacing: -.02em; }
+.confirm-dialog-copy p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.confirm-dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 22px 22px; }
+.dialog-button { min-height: 46px; border-radius: 12px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.dialog-cancel { border: 1px solid var(--line-strong); background: transparent; color: var(--paper); }
+.dialog-delete { border: 1px solid rgba(220, 177, 168, .42); background: rgba(132, 64, 54, .2); color: #ead2cc; }
+.dialog-delete:hover { background: rgba(132, 64, 54, .32); }
 .saved-note { margin: 12px 0 0; color: var(--muted); text-align: center; font-size: 12px; }
 
 .drawer-scrim {

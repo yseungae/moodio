@@ -207,9 +207,10 @@ const pwa = await evaluate(`(async () => {
   const appleIcon = document.querySelector('link[rel=apple-touch-icon]')?.getAttribute('href');
   const data = await fetch(manifest).then((response) => response.json());
   const iconResponses = await Promise.all([...data.icons.map((icon) => icon.src), appleIcon].map((source) => fetch(source).then((response) => response.ok)));
-  return { manifest, favicon, appleIcon, iconResponses, registration: Boolean(await navigator.serviceWorker.getRegistration()) };
+  const serviceWorker = await fetch('./sw.js').then((response) => response.text());
+  return { manifest, favicon, appleIcon, iconResponses, cacheV6: serviceWorker.includes('moodio-shell-v6'), registration: Boolean(await navigator.serviceWorker.getRegistration()) };
 })()`);
-check("PWA manifest and versioned radio icons load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.registration, JSON.stringify(pwa));
+check("PWA manifest, icons, and current app cache load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.cacheV6 && pwa.registration, JSON.stringify(pwa));
 
 // The public Apple endpoint can occasionally be unavailable; report it separately.
 const search = await evaluate(`(async () => {
@@ -283,6 +284,103 @@ const rapidSearch = await evaluate(`(async () => {
   };
 })()`);
 check("Rapid searches keep only the latest JSONP request", rapidSearch.firstTitle.toLowerCase().includes("about") && rapidSearch.callbacksRemaining === 0 && rapidSearch.scriptsRemaining === 0, JSON.stringify(rapidSearch));
+
+const archiveDelete = await evaluate(`(async () => {
+  document.querySelector('[data-language=en]').click();
+  const settingsBefore = localStorage.getItem('moodio.settings.v1');
+  document.querySelector('[data-route=archive]').click();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const monthBefore = document.querySelector('.month-title')?.textContent;
+  const editButton = document.querySelector('[data-edit]');
+  const deletedDate = editButton?.dataset.edit;
+  editButton?.click();
+  const deleteLabel = document.querySelector('#deleteEntryButton')?.textContent;
+  document.querySelector('#deleteEntryButton')?.click();
+  const dialog = document.querySelector('#deleteEntryDialog');
+  const dialogCopy = {
+    open: dialog?.open,
+    title: document.querySelector('#deleteDialogTitle')?.textContent,
+    description: document.querySelector('#deleteDialogDescription')?.textContent,
+    cancel: document.querySelector('#cancelDeleteEntry')?.textContent,
+    confirm: document.querySelector('#confirmDeleteEntry')?.textContent
+  };
+  document.querySelector('#cancelDeleteEntry')?.click();
+  const survivedCancel = Boolean(JSON.parse(localStorage.getItem('moodio.entries.v1'))[deletedDate]);
+  document.querySelector('#deleteEntryButton')?.click();
+  document.querySelector('#confirmDeleteEntry')?.click();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const entries = JSON.parse(localStorage.getItem('moodio.entries.v1'));
+  window.__moodioShareUrl = null;
+  document.querySelector('#shareMonth')?.click();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  return {
+    deletedDate,
+    deleteLabel,
+    dialogCopy,
+    survivedCancel,
+    monthBefore,
+    monthAfter: document.querySelector('.month-title')?.textContent,
+    returnedToArchive: Boolean(document.querySelector('.archive-list')),
+    currentMonthCards: document.querySelectorAll('.entry-card').length,
+    emptyMessage: document.querySelector('.empty-state')?.textContent,
+    deleted: !entries[deletedDate],
+    otherDates: Object.keys(entries),
+    settingsPreserved: localStorage.getItem('moodio.settings.v1') === settingsBefore,
+    previewStopped: document.querySelector('#previewAudio')?.paused && !document.querySelector('#previewAudio')?.getAttribute('src'),
+    newShareWasNotCreated: !window.__moodioShareUrl,
+    shareEmptyMessage: document.querySelector('#toast')?.textContent
+  };
+})()`);
+check("Delete dialog uses the English confirmation copy and supports cancel", archiveDelete.deleteLabel === "Delete entry" && archiveDelete.dialogCopy.open && archiveDelete.dialogCopy.title === "Delete this entry?" && archiveDelete.dialogCopy.description === "This can’t be undone." && archiveDelete.dialogCopy.cancel === "Cancel" && archiveDelete.dialogCopy.confirm === "Delete" && archiveDelete.survivedCancel, JSON.stringify(archiveDelete));
+check("Archive deletion returns to the same month without reload", archiveDelete.returnedToArchive && archiveDelete.monthAfter === archiveDelete.monthBefore && archiveDelete.currentMonthCards === 0 && archiveDelete.emptyMessage === "No songs recorded this month yet.", JSON.stringify(archiveDelete));
+check("Archive deletion removes only the selected date and preserves settings", archiveDelete.deleted && archiveDelete.otherDates.length === 1 && archiveDelete.settingsPreserved && archiveDelete.previewStopped, JSON.stringify(archiveDelete));
+check("Deleted entry is excluded from future monthly shares", archiveDelete.newShareWasNotCreated && archiveDelete.shareEmptyMessage === "There are no entries to share.", JSON.stringify(archiveDelete));
+
+await evaluate(`(() => {
+  const entries = JSON.parse(localStorage.getItem('moodio.entries.v1'));
+  entries[${JSON.stringify(archiveDelete.deletedDate)}] = {
+    date: ${JSON.stringify(archiveDelete.deletedDate)},
+    song: ${JSON.stringify(sampleSong)},
+    note: 'Delete from home.',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  localStorage.setItem('moodio.entries.v1', JSON.stringify(entries));
+  const settings = JSON.parse(localStorage.getItem('moodio.settings.v1'));
+  settings.language = 'ko';
+  localStorage.setItem('moodio.settings.v1', JSON.stringify(settings));
+  return true;
+})()`);
+await navigate(appUrl);
+const homeDelete = await evaluate(`(async () => {
+  const dateBefore = document.querySelector('#entryDate')?.value;
+  const entriesBefore = JSON.parse(localStorage.getItem('moodio.entries.v1'));
+  const settingsBefore = localStorage.getItem('moodio.settings.v1');
+  const label = document.querySelector('#deleteEntryButton')?.textContent;
+  document.querySelector('#deleteEntryButton')?.click();
+  const copy = {
+    title: document.querySelector('#deleteDialogTitle')?.textContent,
+    description: document.querySelector('#deleteDialogDescription')?.textContent,
+    cancel: document.querySelector('#cancelDeleteEntry')?.textContent,
+    confirm: document.querySelector('#confirmDeleteEntry')?.textContent
+  };
+  document.querySelector('#confirmDeleteEntry')?.click();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const entriesAfter = JSON.parse(localStorage.getItem('moodio.entries.v1'));
+  return {
+    dateBefore,
+    dateAfter: document.querySelector('#entryDate')?.value,
+    label,
+    copy,
+    homeSearchVisible: Boolean(document.querySelector('#musicSearch')),
+    selectedDateDeleted: !entriesAfter[dateBefore],
+    otherDatePreserved: Object.keys(entriesAfter).length === Object.keys(entriesBefore).length - 1,
+    settingsPreserved: localStorage.getItem('moodio.settings.v1') === settingsBefore
+  };
+})()`);
+check("Delete dialog changes immediately with the Korean language", homeDelete.label === "기록 삭제" && homeDelete.copy.title === "이 기록을 삭제할까요?" && homeDelete.copy.description === "삭제한 기록은 복구할 수 없어요." && homeDelete.copy.cancel === "취소" && homeDelete.copy.confirm === "삭제", JSON.stringify(homeDelete));
+check("Home deletion keeps the date and returns to the empty search state", homeDelete.dateAfter === homeDelete.dateBefore && homeDelete.homeSearchVisible && homeDelete.selectedDateDeleted, JSON.stringify(homeDelete));
+check("Home deletion preserves other records and all settings", homeDelete.otherDatePreserved && homeDelete.settingsPreserved, JSON.stringify(homeDelete));
 
 const report = { passed: checks.filter((item) => item.passed).length, total: checks.length, checks };
 await writeFile(resolve("smoke-report.json"), JSON.stringify(report, null, 2));

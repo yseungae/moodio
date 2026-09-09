@@ -25,6 +25,14 @@ export function saveEntry(entry) {
   return entry;
 }
 
+export function deleteEntry(date) {
+  const entries = getEntries();
+  if (!Object.prototype.hasOwnProperty.call(entries, date)) return false;
+  delete entries[date];
+  localStorage.setItem(ENTRY_KEY, JSON.stringify(entries));
+  return true;
+}
+
 export function getEntriesForMonth(year, month) {
   const prefix = `${year}-${String(month).padStart(2, "0")}-`;
   return Object.values(getEntries())
