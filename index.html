@@ -17,10 +17,18 @@
   <body>
     <div class="app-shell">
       <header class="topbar">
+        <button id="menuButton" class="icon-button menu-button" type="button" aria-expanded="false" aria-controls="sideDrawer">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          <span class="sr-only" data-i18n="openMenu">메뉴 열기</span>
+        </button>
         <button class="wordmark" type="button" data-route="home" aria-label="Moodio home">
-          <span>Moodio</span><span class="wordmark-dot" aria-hidden="true"></span>
+          <span>Moodio</span>
         </button>
         <div class="topbar-actions">
+          <button id="updateButton" class="icon-button" type="button">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8.2A7 7 0 0 1 18.8 7M17.9 15.8A7 7 0 0 1 5.2 17"/></svg>
+            <span class="sr-only" data-i18n="update">업데이트</span>
+          </button>
           <div class="language-wrap">
             <button id="languageButton" class="icon-button" type="button" aria-haspopup="menu" aria-expanded="false">
               <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.8 9h16.4M3.8 15h16.4M12 3.5c2.2 2.3 3.3 5.1 3.3 8.5S14.2 18.2 12 20.5C9.8 18.2 8.7 15.4 8.7 12S9.8 5.8 12 3.5Z"/></svg>
@@ -31,16 +39,22 @@
               <button type="button" role="menuitem" data-language="en">English</button>
             </div>
           </div>
-          <button id="updateButton" class="icon-button" type="button">
-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8.2A7 7 0 0 1 18.8 7M17.9 15.8A7 7 0 0 1 5.2 17"/></svg>
-            <span class="sr-only" data-i18n="update">업데이트</span>
-          </button>
         </div>
       </header>
 
       <main id="app" tabindex="-1"></main>
+    </div>
 
-      <nav id="bottomNav" class="bottom-nav" aria-label="Primary">
+    <div id="drawerScrim" class="drawer-scrim"></div>
+    <aside id="sideDrawer" class="side-drawer" aria-hidden="true" inert>
+      <div class="drawer-head">
+        <div><strong>Moodio</strong><span data-i18n="appTagline">하루 한 곡, 마음 한 조각</span></div>
+        <button id="closeMenu" class="icon-button" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          <span class="sr-only" data-i18n="closeMenu">메뉴 닫기</span>
+        </button>
+      </div>
+      <nav id="drawerNav" class="drawer-nav" aria-label="Primary">
         <button type="button" data-route="home">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 10 8-6 8 6v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1Z"/></svg>
           <span data-i18n="home">홈</span>
@@ -54,7 +68,8 @@
           <span data-i18n="settings">설정</span>
         </button>
       </nav>
-    </div>
+      <p class="drawer-version">Moodio v0.1</p>
+    </aside>
 
     <div id="artworkModal" class="artwork-modal" role="dialog" aria-modal="true" aria-label="Album artwork" hidden>
       <button id="closeArtwork" class="modal-close" type="button" aria-label="Close">×</button>

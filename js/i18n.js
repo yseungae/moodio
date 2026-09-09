@@ -1,6 +1,6 @@
 export const translations = {
   ko: {
-    language: "언어", update: "업데이트", home: "홈", archive: "지난 기록", settings: "설정",
+    language: "언어", update: "업데이트", openMenu: "메뉴 열기", closeMenu: "메뉴 닫기", home: "홈", archive: "지난 기록", settings: "설정",
     appTagline: "하루 한 곡, 마음 한 조각", heroTitle: "오늘은 어떤 노래가 떠올랐나요?", selectDate: "기록할 날짜",
     searchPlaceholder: "노래, 아티스트 검색", search: "검색", radioHint: "마음에 머문 곡을 찾아보세요. Apple의 음악 검색 결과를 사용합니다.",
     searching: "노래를 찾고 있어요...", noResults: "검색 결과가 없어요. 다른 단어로 검색해보세요.", searchError: "음악을 불러오지 못했어요. 네트워크를 확인해 주세요.",
@@ -19,7 +19,7 @@ export const translations = {
     dateLocale: "ko-KR"
   },
   en: {
-    language: "Language", update: "Update", home: "Home", archive: "Journal", settings: "Settings",
+    language: "Language", update: "Update", openMenu: "Open menu", closeMenu: "Close menu", home: "Home", archive: "Journal", settings: "Settings",
     appTagline: "One song, one piece of today", heroTitle: "What song came to mind today?", selectDate: "Journal date",
     searchPlaceholder: "Search songs or artists", search: "Search", radioHint: "Find the song that stayed with you. Results are provided by Apple’s music search.",
     searching: "Searching for songs...", noResults: "No results. Try a different search.", searchError: "Could not load music. Check your connection.",

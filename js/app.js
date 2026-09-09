@@ -4,7 +4,11 @@ import { searchMusic } from "./musicService.js";
 import { createShareUrl, readShareFromHash } from "./shareService.js";
 
 const app = document.querySelector("#app");
-const bottomNav = document.querySelector("#bottomNav");
+const drawerNav = document.querySelector("#drawerNav");
+const menuButton = document.querySelector("#menuButton");
+const closeMenuButton = document.querySelector("#closeMenu");
+const drawerScrim = document.querySelector("#drawerScrim");
+const sideDrawer = document.querySelector("#sideDrawer");
 const languageButton = document.querySelector("#languageButton");
 const languageMenu = document.querySelector("#languageMenu");
 const updateButton = document.querySelector("#updateButton");
@@ -72,10 +76,13 @@ function bindGlobalEvents() {
     languageButton.setAttribute("aria-expanded", String(willOpen));
   });
 
+  menuButton.addEventListener("click", toggleDrawer);
+  closeMenuButton.addEventListener("click", closeDrawer);
+  drawerScrim.addEventListener("click", closeDrawer);
   updateButton.addEventListener("click", updateApp);
   document.querySelector("#closeArtwork").addEventListener("click", closeArtwork);
   artworkModal.addEventListener("click", (event) => { if (event.target === artworkModal || event.target === modalArtwork) closeArtwork(); });
-  document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeArtwork(); closeLanguageMenu(); } });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeArtwork(); closeLanguageMenu(); closeDrawer(); } });
 
   audio.addEventListener("timeupdate", updateProgress);
   audio.addEventListener("ended", () => { state.playingUrl = ""; updatePlayerButtons(); updateProgress(); });
@@ -126,7 +133,6 @@ function searchTemplate() {
       <input id="musicSearch" class="search-input" type="search" autocomplete="off" placeholder="${escapeAttr(t("searchPlaceholder"))}" />
       <button class="search-submit" type="submit" aria-label="${escapeAttr(t("search"))}">↗</button>
     </form>
-    <p class="radio-hint">${escapeHtml(t("radioHint"))}</p>
     <div id="searchResults" class="search-results"></div>`;
 }
 
@@ -359,7 +365,8 @@ function renderSettings() {
 function renderSharedPage(snapshot) {
   state.sharedSnapshot = snapshot;
   state.sharedError = false;
-  bottomNav.hidden = true;
+  menuButton.hidden = true;
+  closeDrawer();
   updateButton.hidden = true;
   const title = `${snapshot.displayName || t("defaultName")}'s ${englishMonth(snapshot.year, snapshot.month)}`;
   app.innerHTML = `
@@ -375,7 +382,8 @@ function renderSharedPage(snapshot) {
 function renderSharedError() {
   state.sharedSnapshot = null;
   state.sharedError = true;
-  bottomNav.hidden = true;
+  menuButton.hidden = true;
+  closeDrawer();
   updateButton.hidden = true;
   app.innerHTML = `<section class="shared-error"><h1>Moodio</h1><p class="subtle">${escapeHtml(t("invalidShare"))}</p><a class="primary-button" href="${escapeAttr(location.pathname)}" style="display:inline-flex;align-items:center;text-decoration:none">${escapeHtml(t("backToMoodio"))}</a></section>`;
 }
@@ -406,12 +414,34 @@ function applyStaticTranslations() {
 
 function navigate(route) {
   if (!['home', 'archive', 'settings'].includes(route)) return;
+  menuButton.hidden = false;
+  closeDrawer();
   state.route = route;
   render();
 }
 
 function updateNavigation() {
-  bottomNav.querySelectorAll("[data-route]").forEach((button) => button.classList.toggle("active", button.dataset.route === state.route));
+  drawerNav.querySelectorAll("[data-route]").forEach((button) => button.classList.toggle("active", button.dataset.route === state.route));
+}
+
+function toggleDrawer() {
+  document.body.classList.contains("drawer-open") ? closeDrawer() : openDrawer();
+}
+
+function openDrawer() {
+  document.body.classList.add("drawer-open");
+  menuButton.setAttribute("aria-expanded", "true");
+  sideDrawer.inert = false;
+  sideDrawer.setAttribute("aria-hidden", "false");
+  closeMenuButton.focus();
+}
+
+function closeDrawer() {
+  if (sideDrawer.contains(document.activeElement) && !menuButton.hidden) menuButton.focus();
+  document.body.classList.remove("drawer-open");
+  menuButton.setAttribute("aria-expanded", "false");
+  sideDrawer.setAttribute("aria-hidden", "true");
+  sideDrawer.inert = true;
 }
 
 function togglePreview(event) {

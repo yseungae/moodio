@@ -53,11 +53,31 @@ const layout = await evaluate(`({
   title: document.querySelector('h1')?.textContent,
   width: document.documentElement.clientWidth,
   scrollWidth: document.documentElement.scrollWidth,
-  maxDate: document.querySelector('#entryDate')?.max
+  maxDate: document.querySelector('#entryDate')?.max,
+  wordmarkCenter: document.querySelector('.wordmark').getBoundingClientRect().left + document.querySelector('.wordmark').getBoundingClientRect().width / 2,
+  radioHeight: document.querySelector('.radio-card').getBoundingClientRect().height,
+  bottomNavRemoved: !document.querySelector('.bottom-nav')
 })`);
 check("Korean home renders", layout.title === "오늘은 어떤 노래가 떠올랐나요?", layout.title);
 check("No horizontal overflow at 390px", layout.scrollWidth <= layout.width, `${layout.scrollWidth}/${layout.width}`);
 check("Date maximum is set", /^\d{4}-\d{2}-\d{2}$/.test(layout.maxDate), layout.maxDate);
+check("Wordmark stays precisely centered", Math.abs(layout.wordmarkCenter - layout.width / 2) < 1, `${layout.wordmarkCenter}/${layout.width / 2}`);
+check("Empty radio search card is compact", layout.radioHeight < 125, `${layout.radioHeight}px`);
+check("Bottom navigation is removed", layout.bottomNavRemoved);
+
+const drawerOpened = await evaluate(`(() => {
+  document.querySelector('#menuButton').click();
+  return document.body.classList.contains('drawer-open') && document.querySelector('#sideDrawer').getAttribute('aria-hidden') === 'false';
+})()`);
+await delay(250);
+const drawerScreenshot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+await writeFile(resolve("drawer-mobile.png"), Buffer.from(drawerScreenshot.data, "base64"));
+const drawerClosed = await evaluate(`(() => {
+  document.querySelector('#drawerScrim').click();
+  return !document.body.classList.contains('drawer-open');
+})()`);
+const drawer = { opened: drawerOpened, closed: drawerClosed };
+check("Side drawer opens and closes", drawer.opened && drawer.closed, JSON.stringify(drawer));
 
 const screenshot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
 await writeFile(resolve("home-mobile.png"), Buffer.from(screenshot.data, "base64"));
@@ -121,7 +141,7 @@ const shared = await evaluate(`({
   title: document.querySelector('.shared-title')?.textContent,
   cards: document.querySelectorAll('.entry-card').length,
   editButtons: document.querySelectorAll('[data-edit]').length,
-  navHidden: document.querySelector('#bottomNav').hidden
+  navHidden: document.querySelector('#menuButton').hidden
 })`);
 check("Share link opens read-only", shared.title === "Seungae's September" && shared.cards === 1 && shared.editButtons === 0 && shared.navHidden, JSON.stringify(shared));
 
@@ -131,7 +151,7 @@ const translatedShare = await evaluate(`(() => {
     title: document.querySelector('.shared-title')?.textContent,
     sharedLabel: document.querySelector('.shared-mark')?.textContent,
     editButtons: document.querySelectorAll('[data-edit]').length,
-    navHidden: document.querySelector('#bottomNav').hidden
+    navHidden: document.querySelector('#menuButton').hidden
   };
 })()`);
 check("Language change preserves read-only share page", translatedShare.title === "Seungae's September" && translatedShare.sharedLabel.includes("공유된 음악 일기") && translatedShare.editButtons === 0 && translatedShare.navHidden, JSON.stringify(translatedShare));
