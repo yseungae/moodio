@@ -56,14 +56,18 @@ const layout = await evaluate(`({
   maxDate: document.querySelector('#entryDate')?.max,
   wordmarkCenter: document.querySelector('.wordmark').getBoundingClientRect().left + document.querySelector('.wordmark').getBoundingClientRect().width / 2,
   radioHeight: document.querySelector('.radio-card').getBoundingClientRect().height,
-  bottomNavRemoved: !document.querySelector('.bottom-nav')
+  bottomNavRemoved: !document.querySelector('.bottom-nav'),
+  drawerRight: document.querySelector('#sideDrawer').getBoundingClientRect().right,
+  drawerOpen: document.body.classList.contains('drawer-open')
 })`);
 check("Korean home renders", layout.title === "오늘은 어떤 노래가 떠올랐나요?", layout.title);
+check("Korean tagline is exact", await evaluate("document.querySelector('.eyebrow')?.textContent") === "하루 한 곡");
 check("No horizontal overflow at 390px", layout.scrollWidth <= layout.width, `${layout.scrollWidth}/${layout.width}`);
 check("Date maximum is set", /^\d{4}-\d{2}-\d{2}$/.test(layout.maxDate), layout.maxDate);
 check("Wordmark stays precisely centered", Math.abs(layout.wordmarkCenter - layout.width / 2) < 1, `${layout.wordmarkCenter}/${layout.width / 2}`);
 check("Empty radio search card is compact", layout.radioHeight < 125, `${layout.radioHeight}px`);
 check("Bottom navigation is removed", layout.bottomNavRemoved);
+check("Side drawer starts fully closed", !layout.drawerOpen && layout.drawerRight <= 0, JSON.stringify({ drawerRight: layout.drawerRight, drawerOpen: layout.drawerOpen }));
 
 const drawerOpened = await evaluate(`(() => {
   document.querySelector('#menuButton').click();
@@ -100,10 +104,14 @@ const sampleSong = {
   previewUrl: "",
   externalUrl: ""
 };
+const previousMonthSong = { ...sampleSong, id: "previous-month-song", title: "August Song" };
 await evaluate(`(() => {
   const date = document.querySelector('#entryDate').value;
   const entry = { date, song: ${JSON.stringify(sampleSong)}, note: 'A quiet note that survives refresh.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-  localStorage.setItem('moodio.entries.v1', JSON.stringify({ [date]: entry }));
+  const previousMonthDate = new Date(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 2, 15);
+  const previousDate = [previousMonthDate.getFullYear(), String(previousMonthDate.getMonth() + 1).padStart(2, '0'), '15'].join('-');
+  const previousEntry = { date: previousDate, song: ${JSON.stringify(previousMonthSong)}, note: 'A different month.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  localStorage.setItem('moodio.entries.v1', JSON.stringify({ [date]: entry, [previousDate]: previousEntry }));
   localStorage.setItem('moodio.settings.v1', JSON.stringify({ language: 'en', displayName: 'Seungae' }));
   location.reload();
 })()`);
@@ -117,6 +125,7 @@ const persisted = await evaluate(`({
 })`);
 check("Entry survives reload", persisted.title === "About You" && persisted.note.includes("survives"), JSON.stringify(persisted));
 check("Language switches globally", persisted.englishHero === "What song came to mind today?", persisted.englishHero);
+check("English tagline is exact", await evaluate("document.querySelector('.eyebrow')?.textContent") === "One song a day");
 check("Missing preview is handled", persisted.previewDisabled && persisted.previewMessage === "Preview unavailable", persisted.previewMessage);
 
 const modal = await evaluate(`(() => {
@@ -131,6 +140,39 @@ await evaluate("document.querySelector('[data-route=archive]').click(); true");
 await delay(300);
 const archive = await evaluate(`({ cards: document.querySelectorAll('.entry-card').length, editButtons: document.querySelectorAll('[data-edit]').length })`);
 check("Monthly archive lists saved entry", archive.cards === 1 && archive.editButtons === 1, JSON.stringify(archive));
+const archiveScreenshot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+await writeFile(resolve("archive-mobile.png"), Buffer.from(archiveScreenshot.data, "base64"));
+
+const monthFilter = await evaluate(`(async () => {
+  document.querySelector('#previousMonth').click();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const previousTitles = [...document.querySelectorAll('.entry-card h3')].map((element) => element.textContent);
+  document.querySelector('#nextMonth').click();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const currentTitles = [...document.querySelectorAll('.entry-card h3')].map((element) => element.textContent);
+  return { previousTitles, currentTitles };
+})()`);
+check("Month navigation filters entries", monthFilter.previousTitles.length === 1 && monthFilter.previousTitles[0] === "August Song" && monthFilter.currentTitles.length === 1 && monthFilter.currentTitles[0] === "About You", JSON.stringify(monthFilter));
+
+const emptyMonth = await evaluate(`(async () => {
+  document.querySelector('#nextMonth').click();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const message = document.querySelector('.empty-state')?.textContent;
+  document.querySelector('#previousMonth').click();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  return message;
+})()`);
+check("Empty month message is exact", emptyMonth === "No songs recorded this month yet.", emptyMonth);
+
+const monthlyShare = await evaluate(`(async () => {
+  Object.defineProperty(navigator, 'share', { configurable: true, value: async ({ url }) => { window.__moodioShareUrl = url; } });
+  document.querySelector('#shareMonth').click();
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  const module = await import('./js/shareService.js');
+  const snapshot = await module.readShareFromHash(new URL(window.__moodioShareUrl).hash);
+  return { month: snapshot.month, titles: snapshot.entries.map((entry) => entry.song.title) };
+})()`);
+check("Share button includes only the visible month", monthlyShare.month === 9 && monthlyShare.titles.length === 1 && monthlyShare.titles[0] === "About You", JSON.stringify(monthlyShare));
 
 const shareUrl = await evaluate(`(async () => {
   const module = await import('./js/shareService.js');
@@ -166,7 +208,7 @@ const pwa = await evaluate(`(async () => {
   const iconResponses = await Promise.all([...data.icons.map((icon) => icon.src), appleIcon].map((source) => fetch(source).then((response) => response.ok)));
   return { manifest, favicon, appleIcon, iconResponses, registration: Boolean(await navigator.serviceWorker.getRegistration()) };
 })()`);
-check("PWA manifest and versioned radio icons load", pwa.manifest === "./manifest.webmanifest?v=3" && pwa.favicon.endsWith("?v=3") && pwa.appleIcon.includes("icon-180.png?v=3") && pwa.iconResponses.every(Boolean) && pwa.registration, JSON.stringify(pwa));
+check("PWA manifest and versioned radio icons load", pwa.manifest === "./manifest.webmanifest?v=4" && pwa.favicon.endsWith("?v=4") && pwa.appleIcon.includes("icon-180.png?v=4") && pwa.iconResponses.every(Boolean) && pwa.registration, JSON.stringify(pwa));
 
 // The public Apple endpoint can occasionally be unavailable; report it separately.
 const search = await evaluate(`(async () => {
@@ -182,6 +224,7 @@ check("Live music search returns results", search.results > 0, search.message ||
 if (search.results > 0) {
   const saveFlow = await evaluate(`(() => {
     document.querySelector('.result-item').click();
+    const previewAvailable = !document.querySelector('.play-button').disabled;
     const note = document.querySelector('#entryNote');
     note.value = 'Saved through the Moodio interface.';
     document.querySelector('#saveEntry').click();
@@ -191,9 +234,10 @@ if (search.results > 0) {
     document.querySelector('#saveEntry').click();
     const second = JSON.parse(localStorage.getItem('moodio.entries.v1'));
     const date = document.querySelector('#entryDate').value;
-    return { firstNote: first[date].note, secondNote: second[date].note, count: Object.keys(second).length };
+    return { firstNote: first[date].note, secondNote: second[date].note, count: Object.keys(second).length, previewAvailable };
   })()`);
-  check("Save and edit keep one song per day", saveFlow.firstNote.startsWith("Saved") && saveFlow.secondNote.startsWith("Edited") && saveFlow.count === 1, JSON.stringify(saveFlow));
+  check("Selected search result exposes Preview", saveFlow.previewAvailable, JSON.stringify(saveFlow));
+  check("Save and edit keep one song per day", saveFlow.firstNote.startsWith("Saved") && saveFlow.secondNote.startsWith("Edited") && saveFlow.count === 2, JSON.stringify(saveFlow));
 }
 
 const report = { passed: checks.filter((item) => item.passed).length, total: checks.length, checks };

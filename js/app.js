@@ -257,10 +257,12 @@ function renderArchive() {
       <header class="page-head"><p class="eyebrow">Moodio archive</p><h1>${escapeHtml(t("monthlyArchive"))}</h1></header>
       <div class="month-head">
         <button id="previousMonth" class="month-button" type="button" aria-label="${escapeAttr(t("previousMonth"))}"><svg viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg></button>
-        <h2 class="month-title">${escapeHtml(formatMonth(state.archiveYear, state.archiveMonth))}</h2>
+        <div class="month-center">
+          <h2 class="month-title">${escapeHtml(formatMonth(state.archiveYear, state.archiveMonth))}</h2>
+          <button id="shareMonth" class="share-month-button" type="button">${escapeHtml(t("share"))}</button>
+        </div>
         <button id="nextMonth" class="month-button" type="button" aria-label="${escapeAttr(t("nextMonth"))}"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></button>
       </div>
-      <div class="archive-actions"><button id="shareMonth" class="secondary-button" type="button">${escapeHtml(t("share"))} · ${entries.length}</button></div>
       <div class="archive-list">${entries.length ? entries.map((entry) => entryTemplate(entry, true)).join("") : `<div class="empty-state">${escapeHtml(t("noEntries"))}</div>`}</div>
     </section>`;
 
@@ -414,6 +416,11 @@ function applyStaticTranslations() {
 
 function navigate(route) {
   if (!['home', 'archive', 'settings'].includes(route)) return;
+  if (route === "archive" && state.route !== "archive") {
+    const current = new Date();
+    state.archiveYear = current.getFullYear();
+    state.archiveMonth = current.getMonth() + 1;
+  }
   menuButton.hidden = false;
   closeDrawer();
   state.route = route;
