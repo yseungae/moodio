@@ -308,6 +308,7 @@ function renderArchive() {
           <button id="shareMonth" class="share-month-button" type="button">${escapeHtml(t("share"))}</button>
         </div>
         <button id="nextMonth" class="month-button" type="button" aria-label="${escapeAttr(t("nextMonth"))}"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></button>
+        ${monthProgressTemplate(entries.length)}
       </div>
       <div class="archive-list">${entries.length ? entries.map((entry) => entryTemplate(entry, true)).join("") : `<div class="empty-state">${escapeHtml(t("noEntries"))}</div>`}</div>
     </section>`;
@@ -316,6 +317,21 @@ function renderArchive() {
   document.querySelector("#nextMonth").addEventListener("click", () => changeMonth(1));
   document.querySelector("#shareMonth").addEventListener("click", () => shareMonth(entries));
   bindEntryCardEvents();
+}
+
+function monthProgressTemplate(entryCount) {
+  const totalDays = new Date(state.archiveYear, state.archiveMonth, 0).getDate();
+  const percentage = Math.min(100, Math.round((entryCount / totalDays) * 100));
+  return `
+    <aside class="month-progress" aria-label="${escapeAttr(t("monthProgress"))}">
+      <div class="month-progress-row">
+        <span class="battery-shell" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percentage}" aria-label="${escapeAttr(t("monthProgress"))}">
+          <span class="battery-fill" style="width: ${percentage}%"></span>
+        </span>
+        <strong class="month-progress-percent">${percentage}%</strong>
+      </div>
+      <p class="month-progress-count">${escapeHtml(t("monthSongCount", { count: entryCount, total: totalDays }))}</p>
+    </aside>`;
 }
 
 function entryTemplate(entry, editable) {

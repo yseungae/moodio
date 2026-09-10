@@ -179,8 +179,36 @@ check("Artwork modal opens and closes", modal.opened && modal.closed, JSON.strin
 
 await evaluate("document.querySelector('[data-route=archive]').click(); true");
 await delay(300);
-const archive = await evaluate(`({ cards: document.querySelectorAll('.entry-card').length, editButtons: document.querySelectorAll('[data-edit]').length })`);
+const archive = await evaluate(`(() => {
+  const progress = document.querySelector('.month-progress');
+  const next = document.querySelector('#nextMonth');
+  const list = document.querySelector('.archive-list');
+  const progressRect = progress.getBoundingClientRect();
+  const nextRect = next.getBoundingClientRect();
+  const listRect = list.getBoundingClientRect();
+  return {
+    cards: document.querySelectorAll('.entry-card').length,
+    editButtons: document.querySelectorAll('[data-edit]').length,
+    percentage: document.querySelector('.month-progress-percent')?.textContent,
+    count: document.querySelector('.month-progress-count')?.textContent,
+    progressValue: document.querySelector('.battery-shell')?.getAttribute('aria-valuenow'),
+    alignedRight: progressRect.right <= document.documentElement.clientWidth - 15,
+    belowNextArrow: progressRect.top >= nextRect.bottom,
+    aboveCards: progressRect.bottom <= listRect.top
+  };
+})()`);
 check("Monthly archive lists saved entry", archive.cards === 1 && archive.editButtons === 1, JSON.stringify(archive));
+check("Monthly battery shows the current month progress", archive.percentage === "3%" && archive.progressValue === "3" && archive.count === "1 / 30 songs", JSON.stringify(archive));
+check("Monthly battery sits below the right arrow and above cards", archive.alignedRight && archive.belowNextArrow && archive.aboveCards, JSON.stringify(archive));
+
+const batteryLanguage = await evaluate(`(() => {
+  document.querySelector('[data-language=ko]').click();
+  const korean = document.querySelector('.month-progress-count')?.textContent;
+  document.querySelector('[data-language=en]').click();
+  const english = document.querySelector('.month-progress-count')?.textContent;
+  return { korean, english };
+})()`);
+check("Monthly battery count follows the selected language", batteryLanguage.korean === "1 / 30곡" && batteryLanguage.english === "1 / 30 songs", JSON.stringify(batteryLanguage));
 const archiveScreenshot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
 await writeFile(resolve("archive-mobile.png"), Buffer.from(archiveScreenshot.data, "base64"));
 
@@ -194,6 +222,16 @@ const monthFilter = await evaluate(`(async () => {
   return { previousTitles, currentTitles };
 })()`);
 check("Month navigation filters entries", monthFilter.previousTitles.length === 1 && monthFilter.previousTitles[0] === "August Song" && monthFilter.currentTitles.length === 1 && monthFilter.currentTitles[0] === "About You", JSON.stringify(monthFilter));
+
+const calendarDays = await evaluate(`(() => {
+  for (let index = 0; index < 7; index += 1) document.querySelector('#previousMonth').click();
+  const february2026 = document.querySelector('.month-progress-count')?.textContent;
+  for (let index = 0; index < 24; index += 1) document.querySelector('#previousMonth').click();
+  const february2024 = document.querySelector('.month-progress-count')?.textContent;
+  for (let index = 0; index < 31; index += 1) document.querySelector('#nextMonth').click();
+  return { february2026, february2024, returnedMonth: document.querySelector('.month-title')?.textContent };
+})()`);
+check("Monthly battery handles February and leap years", calendarDays.february2026 === "0 / 28 songs" && calendarDays.february2024 === "0 / 29 songs" && calendarDays.returnedMonth === "September 2026", JSON.stringify(calendarDays));
 
 const emptyMonth = await evaluate(`(async () => {
   document.querySelector('#nextMonth').click();
@@ -248,9 +286,9 @@ const pwa = await evaluate(`(async () => {
   const data = await fetch(manifest).then((response) => response.json());
   const iconResponses = await Promise.all([...data.icons.map((icon) => icon.src), appleIcon].map((source) => fetch(source).then((response) => response.ok)));
   const serviceWorker = await fetch('./sw.js').then((response) => response.text());
-  return { manifest, favicon, appleIcon, iconResponses, cacheV9: serviceWorker.includes('moodio-shell-v9'), registration: Boolean(await navigator.serviceWorker.getRegistration()) };
+  return { manifest, favicon, appleIcon, iconResponses, cacheV10: serviceWorker.includes('moodio-shell-v10'), registration: Boolean(await navigator.serviceWorker.getRegistration()) };
 })()`);
-check("PWA manifest, icons, and current app cache load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.cacheV9 && pwa.registration, JSON.stringify(pwa));
+check("PWA manifest, icons, and current app cache load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.cacheV10 && pwa.registration, JSON.stringify(pwa));
 
 // The public Apple endpoint can occasionally be unavailable; report it separately.
 const search = await evaluate(`(async () => {
@@ -367,6 +405,8 @@ const archiveDelete = await evaluate(`(async () => {
     otherDates: Object.keys(entries),
     settingsPreserved: localStorage.getItem('moodio.settings.v1') === settingsBefore,
     previewStopped: document.querySelector('#previewAudio')?.paused && !document.querySelector('#previewAudio')?.getAttribute('src'),
+    progressAfterDelete: document.querySelector('.month-progress-percent')?.textContent,
+    countAfterDelete: document.querySelector('.month-progress-count')?.textContent,
     newShareWasNotCreated: !window.__moodioShareUrl,
     shareEmptyMessage: document.querySelector('#toast')?.textContent
   };
@@ -374,6 +414,7 @@ const archiveDelete = await evaluate(`(async () => {
 check("Delete dialog uses the English confirmation copy and supports cancel", archiveDelete.deleteLabel === "Delete entry" && archiveDelete.dialogCopy.open && archiveDelete.dialogCopy.title === "Delete this entry?" && archiveDelete.dialogCopy.description === "This can’t be undone." && archiveDelete.dialogCopy.cancel === "Cancel" && archiveDelete.dialogCopy.confirm === "Delete" && archiveDelete.survivedCancel, JSON.stringify(archiveDelete));
 check("Archive deletion returns to the same month without reload", archiveDelete.returnedToArchive && archiveDelete.monthAfter === archiveDelete.monthBefore && archiveDelete.currentMonthCards === 0 && archiveDelete.emptyMessage === "No songs recorded this month yet.", JSON.stringify(archiveDelete));
 check("Archive deletion removes only the selected date and preserves settings", archiveDelete.deleted && archiveDelete.otherDates.length === 1 && archiveDelete.settingsPreserved && archiveDelete.previewStopped, JSON.stringify(archiveDelete));
+check("Monthly battery updates immediately after deletion", archiveDelete.progressAfterDelete === "0%" && archiveDelete.countAfterDelete === "0 / 30 songs", JSON.stringify(archiveDelete));
 check("Deleted entry is excluded from future monthly shares", archiveDelete.newShareWasNotCreated && archiveDelete.shareEmptyMessage === "There are no entries to share.", JSON.stringify(archiveDelete));
 
 await evaluate(`(() => {
