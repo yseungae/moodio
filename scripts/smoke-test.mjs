@@ -57,6 +57,10 @@ const layout = await evaluate(`({
   maxDate: document.querySelector('#entryDate')?.max,
   wordmarkCenter: document.querySelector('.wordmark').getBoundingClientRect().left + document.querySelector('.wordmark').getBoundingClientRect().width / 2,
   radioHeight: document.querySelector('.radio-card').getBoundingClientRect().height,
+  heroClass: document.querySelector('h1')?.classList.contains('hero-title'),
+  heroColor: getComputedStyle(document.querySelector('h1')).color,
+  heroShadow: getComputedStyle(document.querySelector('h1')).textShadow,
+  subtitleShadow: getComputedStyle(document.querySelector('.eyebrow')).textShadow,
   bottomNavRemoved: !document.querySelector('.bottom-nav'),
   drawerRight: document.querySelector('#sideDrawer').getBoundingClientRect().right,
   drawerOpen: document.body.classList.contains('drawer-open')
@@ -67,6 +71,7 @@ check("No horizontal overflow at 390px", layout.scrollWidth <= layout.width, `${
 check("Date maximum is set", /^\d{4}-\d{2}-\d{2}$/.test(layout.maxDate), layout.maxDate);
 check("Wordmark stays precisely centered", Math.abs(layout.wordmarkCenter - layout.width / 2) < 1, `${layout.wordmarkCenter}/${layout.width / 2}`);
 check("Empty radio search card is compact", layout.radioHeight < 125, `${layout.radioHeight}px`);
+check("Home title alone receives a subtle chromatic glow", layout.heroClass && layout.heroColor === "rgb(242, 239, 232)" && layout.heroShadow !== "none" && layout.subtitleShadow === "none", JSON.stringify({ heroColor: layout.heroColor, heroShadow: layout.heroShadow, subtitleShadow: layout.subtitleShadow }));
 check("Bottom navigation is removed", layout.bottomNavRemoved);
 check("Side drawer starts fully closed", !layout.drawerOpen && layout.drawerRight <= 0, JSON.stringify({ drawerRight: layout.drawerRight, drawerOpen: layout.drawerOpen }));
 
@@ -109,6 +114,7 @@ const drawerClosed = await evaluate(`(() => {
 const drawer = { opened: drawerOpened, closed: drawerClosed };
 check("Side drawer opens and closes", drawer.opened && drawer.closed, JSON.stringify(drawer));
 
+await delay(250);
 const screenshot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
 await writeFile(resolve("home-mobile.png"), Buffer.from(screenshot.data, "base64"));
 
@@ -242,9 +248,9 @@ const pwa = await evaluate(`(async () => {
   const data = await fetch(manifest).then((response) => response.json());
   const iconResponses = await Promise.all([...data.icons.map((icon) => icon.src), appleIcon].map((source) => fetch(source).then((response) => response.ok)));
   const serviceWorker = await fetch('./sw.js').then((response) => response.text());
-  return { manifest, favicon, appleIcon, iconResponses, cacheV7: serviceWorker.includes('moodio-shell-v7'), registration: Boolean(await navigator.serviceWorker.getRegistration()) };
+  return { manifest, favicon, appleIcon, iconResponses, cacheV8: serviceWorker.includes('moodio-shell-v8'), registration: Boolean(await navigator.serviceWorker.getRegistration()) };
 })()`);
-check("PWA manifest, icons, and current app cache load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.cacheV7 && pwa.registration, JSON.stringify(pwa));
+check("PWA manifest, icons, and current app cache load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.cacheV8 && pwa.registration, JSON.stringify(pwa));
 
 // The public Apple endpoint can occasionally be unavailable; report it separately.
 const search = await evaluate(`(async () => {

@@ -108,7 +108,7 @@ function renderHome() {
     <section>
       <header class="page-head">
         <p class="eyebrow">${escapeHtml(t("appTagline"))}</p>
-        <h1>${escapeHtml(t("heroTitle"))}</h1>
+        <h1 class="hero-title">${escapeHtml(t("heroTitle"))}</h1>
       </header>
       <div class="date-row">
         <label for="entryDate">${escapeHtml(t("selectDate"))}</label>

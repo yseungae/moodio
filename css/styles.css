@@ -157,6 +157,14 @@ main {
 .eyebrow { margin: 0 0 8px; color: var(--muted); font-size: 13px; font-weight: 500; letter-spacing: .01em; }
 h1, h2, h3, p { overflow-wrap: anywhere; }
 h1 { max-width: 640px; margin: 0; font-size: clamp(29px, 7.4vw, 40px); font-weight: 600; line-height: 1.25; letter-spacing: -.035em; word-break: keep-all; text-wrap: balance; }
+.hero-title {
+  color: #f2efe8;
+  text-shadow:
+    -0.65px 0 rgba(91, 190, 214, .24),
+    0.65px 0 rgba(210, 102, 132, .19),
+    0 0 7px rgba(225, 232, 235, .13),
+    0 0 16px rgba(104, 148, 170, .055);
+}
 h2 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -.025em; }
 h3 { margin: 0; font-size: 18px; font-weight: 580; letter-spacing: -.02em; }
 .subtle { color: var(--muted); }
@@ -475,6 +483,13 @@ body.drawer-open .side-drawer { transform: translateX(0); }
 
 @media (max-width: 430px) {
   main { padding-top: 24px; padding-right: 16px; padding-left: 16px; }
+  .hero-title {
+    text-shadow:
+      -0.45px 0 rgba(91, 190, 214, .22),
+      0.45px 0 rgba(210, 102, 132, .17),
+      0 0 6px rgba(225, 232, 235, .12),
+      0 0 13px rgba(104, 148, 170, .05);
+  }
   .radio-card { padding: 13px; border-radius: 17px; }
   .selected-song { grid-template-columns: 92px minmax(0, 1fr); gap: 14px; }
   .selected-art { width: 92px; border-radius: 13px; }
