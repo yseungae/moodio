@@ -59,12 +59,27 @@ const layout = await evaluate(`({
   radioHeight: document.querySelector('.radio-card').getBoundingClientRect().height,
   heroClass: document.querySelector('h1')?.classList.contains('hero-title'),
   heroColor: getComputedStyle(document.querySelector('h1')).color,
+  heroSize: getComputedStyle(document.querySelector('h1')).fontSize,
   heroWeight: getComputedStyle(document.querySelector('h1')).fontWeight,
   heroShadow: getComputedStyle(document.querySelector('h1')).textShadow,
+  eyebrowSize: getComputedStyle(document.querySelector('.eyebrow')).fontSize,
   eyebrowWeight: getComputedStyle(document.querySelector('.eyebrow')).fontWeight,
+  dateLabelSize: getComputedStyle(document.querySelector('.date-row label')).fontSize,
   dateLabelWeight: getComputedStyle(document.querySelector('.date-row label')).fontWeight,
+  radioMetaSize: getComputedStyle(document.querySelector('.radio-topline')).fontSize,
   radioMetaWeight: getComputedStyle(document.querySelector('.radio-topline')).fontWeight,
+  placeholderSize: getComputedStyle(document.querySelector('.search-input'), '::placeholder').fontSize,
   placeholderWeight: getComputedStyle(document.querySelector('.search-input'), '::placeholder').fontWeight,
+  updateButtonWidth: document.querySelector('#updateButton').getBoundingClientRect().width,
+  updateButtonHeight: document.querySelector('#updateButton').getBoundingClientRect().height,
+  updateIconWidth: document.querySelector('#updateButton svg').getBoundingClientRect().width,
+  updateIconHeight: document.querySelector('#updateButton svg').getBoundingClientRect().height,
+  updateIconStroke: getComputedStyle(document.querySelector('#updateButton svg')).strokeWidth,
+  updateIconPaths: document.querySelectorAll('#updateButton svg path').length,
+  updateUsesBitmap: Boolean(document.querySelector('#updateButton img')),
+  languageIconWidth: document.querySelector('#languageButton svg').getBoundingClientRect().width,
+  languageIconHeight: document.querySelector('#languageButton svg').getBoundingClientRect().height,
+  languageIconStroke: getComputedStyle(document.querySelector('#languageButton svg')).strokeWidth,
   subtitleShadow: getComputedStyle(document.querySelector('.eyebrow')).textShadow,
   bottomNavRemoved: !document.querySelector('.bottom-nav'),
   drawerRight: document.querySelector('#sideDrawer').getBoundingClientRect().right,
@@ -77,7 +92,8 @@ check("Date maximum is set", /^\d{4}-\d{2}-\d{2}$/.test(layout.maxDate), layout.
 check("Wordmark stays precisely centered", Math.abs(layout.wordmarkCenter - layout.width / 2) < 1, `${layout.wordmarkCenter}/${layout.width / 2}`);
 check("Empty radio search card is compact", layout.radioHeight < 125, `${layout.radioHeight}px`);
 check("Home title alone receives a subtle chromatic glow", layout.heroClass && layout.heroColor === "rgb(242, 239, 232)" && layout.heroShadow !== "none" && layout.subtitleShadow === "none", JSON.stringify({ heroColor: layout.heroColor, heroShadow: layout.heroShadow, subtitleShadow: layout.subtitleShadow }));
-check("Small home labels use clearer typography without changing the hero", layout.heroWeight === "600" && Number(layout.eyebrowWeight) >= 500 && Number(layout.dateLabelWeight) >= 500 && Number(layout.radioMetaWeight) >= 500 && Number(layout.placeholderWeight) >= 500, JSON.stringify({ heroWeight: layout.heroWeight, eyebrowWeight: layout.eyebrowWeight, dateLabelWeight: layout.dateLabelWeight, radioMetaWeight: layout.radioMetaWeight, placeholderWeight: layout.placeholderWeight }));
+check("Small home labels are larger and clearer without changing the hero", layout.heroSize === "29px" && layout.heroWeight === "600" && parseFloat(layout.eyebrowSize) >= 14 && Number(layout.eyebrowWeight) >= 600 && parseFloat(layout.dateLabelSize) >= 14 && Number(layout.dateLabelWeight) >= 600 && parseFloat(layout.radioMetaSize) >= 12 && Number(layout.radioMetaWeight) >= 600 && parseFloat(layout.placeholderSize) >= 16 && Number(layout.placeholderWeight) >= 500, JSON.stringify({ heroSize: layout.heroSize, heroWeight: layout.heroWeight, eyebrowSize: layout.eyebrowSize, eyebrowWeight: layout.eyebrowWeight, dateLabelSize: layout.dateLabelSize, dateLabelWeight: layout.dateLabelWeight, radioMetaSize: layout.radioMetaSize, radioMetaWeight: layout.radioMetaWeight, placeholderSize: layout.placeholderSize, placeholderWeight: layout.placeholderWeight }));
+check("Update control uses an aligned vector icon and a 44px touch target", layout.updateButtonWidth >= 44 && layout.updateButtonHeight >= 44 && layout.updateIconWidth === 22 && layout.updateIconHeight === 22 && layout.updateIconPaths === 4 && !layout.updateUsesBitmap && layout.updateIconWidth === layout.languageIconWidth && layout.updateIconHeight === layout.languageIconHeight && layout.updateIconStroke === layout.languageIconStroke, JSON.stringify({ updateButton: [layout.updateButtonWidth, layout.updateButtonHeight], updateIcon: [layout.updateIconWidth, layout.updateIconHeight, layout.updateIconStroke], languageIcon: [layout.languageIconWidth, layout.languageIconHeight, layout.languageIconStroke], updateIconPaths: layout.updateIconPaths, updateUsesBitmap: layout.updateUsesBitmap }));
 check("Bottom navigation is removed", layout.bottomNavRemoved);
 check("Side drawer starts fully closed", !layout.drawerOpen && layout.drawerRight <= 0, JSON.stringify({ drawerRight: layout.drawerRight, drawerOpen: layout.drawerOpen }));
 
@@ -160,14 +176,16 @@ const persisted = await evaluate(`({
   previewDisabled: document.querySelector('.play-button')?.disabled,
   previewMessage: document.querySelector('.preview-status')?.textContent,
   englishHero: document.querySelector('h1')?.textContent,
+  noteLabelSize: getComputedStyle(document.querySelector('.note-label')).fontSize,
   noteLabelWeight: getComputedStyle(document.querySelector('.note-label')).fontWeight,
+  noteInputSize: getComputedStyle(document.querySelector('.note-input')).fontSize,
   noteInputWeight: getComputedStyle(document.querySelector('.note-input')).fontWeight
 })`);
 check("Entry survives reload", persisted.title === "About You" && persisted.note.includes("survives"), JSON.stringify(persisted));
 check("Language switches globally", persisted.englishHero === "What song came to mind today?", persisted.englishHero);
 check("English tagline is exact", await evaluate("document.querySelector('.eyebrow')?.textContent") === "One song a day");
 check("Missing preview is handled", persisted.previewDisabled && persisted.previewMessage === "Preview unavailable.", persisted.previewMessage);
-check("Journal label and input text are easier to read", Number(persisted.noteLabelWeight) >= 500 && Number(persisted.noteInputWeight) >= 500, JSON.stringify(persisted));
+check("Journal label and input text are larger and easier to read", parseFloat(persisted.noteLabelSize) >= 14 && Number(persisted.noteLabelWeight) >= 600 && parseFloat(persisted.noteInputSize) >= 16 && Number(persisted.noteInputWeight) >= 500, JSON.stringify(persisted));
 
 const noteFocus = await evaluate(`(async () => {
   const note = document.querySelector('.note-input');
@@ -200,9 +218,13 @@ const archive = await evaluate(`(() => {
     editButtons: document.querySelectorAll('[data-edit]').length,
     percentage: document.querySelector('.month-progress-percent')?.textContent,
     count: document.querySelector('.month-progress-count')?.textContent,
+    countSize: getComputedStyle(document.querySelector('.month-progress-count')).fontSize,
     countWeight: getComputedStyle(document.querySelector('.month-progress-count')).fontWeight,
+    dateSize: getComputedStyle(document.querySelector('.entry-date')).fontSize,
     dateWeight: getComputedStyle(document.querySelector('.entry-date')).fontWeight,
+    artistSize: getComputedStyle(document.querySelector('.entry-artist')).fontSize,
     artistWeight: getComputedStyle(document.querySelector('.entry-artist')).fontWeight,
+    noteSize: getComputedStyle(document.querySelector('.entry-note')).fontSize,
     noteWeight: getComputedStyle(document.querySelector('.entry-note')).fontWeight,
     progressValue: document.querySelector('.battery-shell')?.getAttribute('aria-valuenow'),
     alignedRight: progressRect.right <= document.documentElement.clientWidth - 15,
@@ -213,7 +235,7 @@ const archive = await evaluate(`(() => {
 check("Monthly archive lists saved entry", archive.cards === 1 && archive.editButtons === 1, JSON.stringify(archive));
 check("Monthly battery shows the current month progress", archive.percentage === "3%" && archive.progressValue === "3" && archive.count === "1 / 30 songs", JSON.stringify(archive));
 check("Monthly battery sits below the right arrow and above cards", archive.alignedRight && archive.belowNextArrow && archive.aboveCards, JSON.stringify(archive));
-check("Archive metadata uses clearer small typography", Number(archive.countWeight) >= 500 && Number(archive.dateWeight) >= 500 && Number(archive.artistWeight) >= 500 && Number(archive.noteWeight) >= 500, JSON.stringify(archive));
+check("Archive metadata uses larger, clearer small typography", parseFloat(archive.countSize) >= 12 && Number(archive.countWeight) >= 600 && parseFloat(archive.dateSize) >= 12 && Number(archive.dateWeight) >= 600 && parseFloat(archive.artistSize) >= 14 && Number(archive.artistWeight) >= 500 && parseFloat(archive.noteSize) >= 15 && Number(archive.noteWeight) >= 500, JSON.stringify(archive));
 
 const batteryLanguage = await evaluate(`(() => {
   document.querySelector('[data-language=ko]').click();
@@ -277,11 +299,13 @@ const shared = await evaluate(`({
   cards: document.querySelectorAll('.entry-card').length,
   editButtons: document.querySelectorAll('[data-edit]').length,
   navHidden: document.querySelector('#menuButton').hidden,
+  markSize: getComputedStyle(document.querySelector('.shared-mark')).fontSize,
   markWeight: getComputedStyle(document.querySelector('.shared-mark')).fontWeight,
+  subtitleSize: getComputedStyle(document.querySelector('.shared-subtitle')).fontSize,
   subtitleWeight: getComputedStyle(document.querySelector('.shared-subtitle')).fontWeight
 })`);
 check("Share link opens read-only", shared.title === "Seungae's September" && shared.cards === 1 && shared.editButtons === 0 && shared.navHidden, JSON.stringify(shared));
-check("Shared-page metadata uses clearer small typography", Number(shared.markWeight) >= 500 && Number(shared.subtitleWeight) >= 500, JSON.stringify(shared));
+check("Shared-page metadata uses larger, clearer small typography", parseFloat(shared.markSize) >= 14 && Number(shared.markWeight) >= 600 && parseFloat(shared.subtitleSize) >= 16 && Number(shared.subtitleWeight) >= 500, JSON.stringify(shared));
 
 const translatedShare = await evaluate(`(() => {
   document.querySelector('[data-language=ko]').click();
@@ -303,9 +327,9 @@ const pwa = await evaluate(`(async () => {
   const data = await fetch(manifest).then((response) => response.json());
   const iconResponses = await Promise.all([...data.icons.map((icon) => icon.src), appleIcon].map((source) => fetch(source).then((response) => response.ok)));
   const serviceWorker = await fetch('./sw.js').then((response) => response.text());
-  return { manifest, favicon, appleIcon, iconResponses, cacheV11: serviceWorker.includes('moodio-shell-v11'), registration: Boolean(await navigator.serviceWorker.getRegistration()) };
+  return { manifest, favicon, appleIcon, iconResponses, cacheV12: serviceWorker.includes('moodio-shell-v12'), registration: Boolean(await navigator.serviceWorker.getRegistration()) };
 })()`);
-check("PWA manifest, icons, and current app cache load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.cacheV11 && pwa.registration, JSON.stringify(pwa));
+check("PWA manifest, icons, and current app cache load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.cacheV12 && pwa.registration, JSON.stringify(pwa));
 
 // The public Apple endpoint can occasionally be unavailable; report it separately.
 const search = await evaluate(`(async () => {
@@ -483,14 +507,17 @@ check("Home deletion preserves other records and all settings", homeDelete.other
 const settingsTypography = await evaluate(`(() => {
   document.querySelector('[data-route=settings]').click();
   const result = {
+    labelSize: getComputedStyle(document.querySelector('.settings-label')).fontSize,
     labelWeight: getComputedStyle(document.querySelector('.settings-label')).fontWeight,
+    helpSize: getComputedStyle(document.querySelector('.settings-help')).fontSize,
     helpWeight: getComputedStyle(document.querySelector('.settings-help')).fontWeight,
+    inputSize: getComputedStyle(document.querySelector('.text-input')).fontSize,
     inputWeight: getComputedStyle(document.querySelector('.text-input')).fontWeight
   };
   document.querySelector('[data-route=home]').click();
   return result;
 })()`);
-check("Settings labels and helper text use clearer typography", Number(settingsTypography.labelWeight) >= 500 && Number(settingsTypography.helpWeight) >= 500 && Number(settingsTypography.inputWeight) >= 500, JSON.stringify(settingsTypography));
+check("Settings labels and helper text use larger, clearer typography", parseFloat(settingsTypography.labelSize) >= 15 && Number(settingsTypography.labelWeight) >= 600 && parseFloat(settingsTypography.helpSize) >= 13 && Number(settingsTypography.helpWeight) >= 500 && parseFloat(settingsTypography.inputSize) >= 16 && Number(settingsTypography.inputWeight) >= 500, JSON.stringify(settingsTypography));
 
 const latestUpdate = await evaluate(`(async () => {
   const waitFor = async (predicate, timeout = 5000) => {
