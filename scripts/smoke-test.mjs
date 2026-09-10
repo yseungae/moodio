@@ -59,7 +59,12 @@ const layout = await evaluate(`({
   radioHeight: document.querySelector('.radio-card').getBoundingClientRect().height,
   heroClass: document.querySelector('h1')?.classList.contains('hero-title'),
   heroColor: getComputedStyle(document.querySelector('h1')).color,
+  heroWeight: getComputedStyle(document.querySelector('h1')).fontWeight,
   heroShadow: getComputedStyle(document.querySelector('h1')).textShadow,
+  eyebrowWeight: getComputedStyle(document.querySelector('.eyebrow')).fontWeight,
+  dateLabelWeight: getComputedStyle(document.querySelector('.date-row label')).fontWeight,
+  radioMetaWeight: getComputedStyle(document.querySelector('.radio-topline')).fontWeight,
+  placeholderWeight: getComputedStyle(document.querySelector('.search-input'), '::placeholder').fontWeight,
   subtitleShadow: getComputedStyle(document.querySelector('.eyebrow')).textShadow,
   bottomNavRemoved: !document.querySelector('.bottom-nav'),
   drawerRight: document.querySelector('#sideDrawer').getBoundingClientRect().right,
@@ -72,6 +77,7 @@ check("Date maximum is set", /^\d{4}-\d{2}-\d{2}$/.test(layout.maxDate), layout.
 check("Wordmark stays precisely centered", Math.abs(layout.wordmarkCenter - layout.width / 2) < 1, `${layout.wordmarkCenter}/${layout.width / 2}`);
 check("Empty radio search card is compact", layout.radioHeight < 125, `${layout.radioHeight}px`);
 check("Home title alone receives a subtle chromatic glow", layout.heroClass && layout.heroColor === "rgb(242, 239, 232)" && layout.heroShadow !== "none" && layout.subtitleShadow === "none", JSON.stringify({ heroColor: layout.heroColor, heroShadow: layout.heroShadow, subtitleShadow: layout.subtitleShadow }));
+check("Small home labels use clearer typography without changing the hero", layout.heroWeight === "600" && Number(layout.eyebrowWeight) >= 500 && Number(layout.dateLabelWeight) >= 500 && Number(layout.radioMetaWeight) >= 500 && Number(layout.placeholderWeight) >= 500, JSON.stringify({ heroWeight: layout.heroWeight, eyebrowWeight: layout.eyebrowWeight, dateLabelWeight: layout.dateLabelWeight, radioMetaWeight: layout.radioMetaWeight, placeholderWeight: layout.placeholderWeight }));
 check("Bottom navigation is removed", layout.bottomNavRemoved);
 check("Side drawer starts fully closed", !layout.drawerOpen && layout.drawerRight <= 0, JSON.stringify({ drawerRight: layout.drawerRight, drawerOpen: layout.drawerOpen }));
 
@@ -153,12 +159,15 @@ const persisted = await evaluate(`({
   note: document.querySelector('#entryNote')?.value,
   previewDisabled: document.querySelector('.play-button')?.disabled,
   previewMessage: document.querySelector('.preview-status')?.textContent,
-  englishHero: document.querySelector('h1')?.textContent
+  englishHero: document.querySelector('h1')?.textContent,
+  noteLabelWeight: getComputedStyle(document.querySelector('.note-label')).fontWeight,
+  noteInputWeight: getComputedStyle(document.querySelector('.note-input')).fontWeight
 })`);
 check("Entry survives reload", persisted.title === "About You" && persisted.note.includes("survives"), JSON.stringify(persisted));
 check("Language switches globally", persisted.englishHero === "What song came to mind today?", persisted.englishHero);
 check("English tagline is exact", await evaluate("document.querySelector('.eyebrow')?.textContent") === "One song a day");
 check("Missing preview is handled", persisted.previewDisabled && persisted.previewMessage === "Preview unavailable.", persisted.previewMessage);
+check("Journal label and input text are easier to read", Number(persisted.noteLabelWeight) >= 500 && Number(persisted.noteInputWeight) >= 500, JSON.stringify(persisted));
 
 const noteFocus = await evaluate(`(async () => {
   const note = document.querySelector('.note-input');
@@ -191,6 +200,10 @@ const archive = await evaluate(`(() => {
     editButtons: document.querySelectorAll('[data-edit]').length,
     percentage: document.querySelector('.month-progress-percent')?.textContent,
     count: document.querySelector('.month-progress-count')?.textContent,
+    countWeight: getComputedStyle(document.querySelector('.month-progress-count')).fontWeight,
+    dateWeight: getComputedStyle(document.querySelector('.entry-date')).fontWeight,
+    artistWeight: getComputedStyle(document.querySelector('.entry-artist')).fontWeight,
+    noteWeight: getComputedStyle(document.querySelector('.entry-note')).fontWeight,
     progressValue: document.querySelector('.battery-shell')?.getAttribute('aria-valuenow'),
     alignedRight: progressRect.right <= document.documentElement.clientWidth - 15,
     belowNextArrow: progressRect.top >= nextRect.bottom,
@@ -200,6 +213,7 @@ const archive = await evaluate(`(() => {
 check("Monthly archive lists saved entry", archive.cards === 1 && archive.editButtons === 1, JSON.stringify(archive));
 check("Monthly battery shows the current month progress", archive.percentage === "3%" && archive.progressValue === "3" && archive.count === "1 / 30 songs", JSON.stringify(archive));
 check("Monthly battery sits below the right arrow and above cards", archive.alignedRight && archive.belowNextArrow && archive.aboveCards, JSON.stringify(archive));
+check("Archive metadata uses clearer small typography", Number(archive.countWeight) >= 500 && Number(archive.dateWeight) >= 500 && Number(archive.artistWeight) >= 500 && Number(archive.noteWeight) >= 500, JSON.stringify(archive));
 
 const batteryLanguage = await evaluate(`(() => {
   document.querySelector('[data-language=ko]').click();
@@ -262,9 +276,12 @@ const shared = await evaluate(`({
   title: document.querySelector('.shared-title')?.textContent,
   cards: document.querySelectorAll('.entry-card').length,
   editButtons: document.querySelectorAll('[data-edit]').length,
-  navHidden: document.querySelector('#menuButton').hidden
+  navHidden: document.querySelector('#menuButton').hidden,
+  markWeight: getComputedStyle(document.querySelector('.shared-mark')).fontWeight,
+  subtitleWeight: getComputedStyle(document.querySelector('.shared-subtitle')).fontWeight
 })`);
 check("Share link opens read-only", shared.title === "Seungae's September" && shared.cards === 1 && shared.editButtons === 0 && shared.navHidden, JSON.stringify(shared));
+check("Shared-page metadata uses clearer small typography", Number(shared.markWeight) >= 500 && Number(shared.subtitleWeight) >= 500, JSON.stringify(shared));
 
 const translatedShare = await evaluate(`(() => {
   document.querySelector('[data-language=ko]').click();
@@ -286,9 +303,9 @@ const pwa = await evaluate(`(async () => {
   const data = await fetch(manifest).then((response) => response.json());
   const iconResponses = await Promise.all([...data.icons.map((icon) => icon.src), appleIcon].map((source) => fetch(source).then((response) => response.ok)));
   const serviceWorker = await fetch('./sw.js').then((response) => response.text());
-  return { manifest, favicon, appleIcon, iconResponses, cacheV10: serviceWorker.includes('moodio-shell-v10'), registration: Boolean(await navigator.serviceWorker.getRegistration()) };
+  return { manifest, favicon, appleIcon, iconResponses, cacheV11: serviceWorker.includes('moodio-shell-v11'), registration: Boolean(await navigator.serviceWorker.getRegistration()) };
 })()`);
-check("PWA manifest, icons, and current app cache load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.cacheV10 && pwa.registration, JSON.stringify(pwa));
+check("PWA manifest, icons, and current app cache load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.cacheV11 && pwa.registration, JSON.stringify(pwa));
 
 // The public Apple endpoint can occasionally be unavailable; report it separately.
 const search = await evaluate(`(async () => {
@@ -462,6 +479,18 @@ const homeDelete = await evaluate(`(async () => {
 check("Delete dialog changes immediately with the Korean language", homeDelete.label === "기록 삭제" && homeDelete.copy.title === "이 기록을 삭제할까요?" && homeDelete.copy.description === "삭제한 기록은 복구할 수 없어요." && homeDelete.copy.cancel === "취소" && homeDelete.copy.confirm === "삭제", JSON.stringify(homeDelete));
 check("Home deletion keeps the date and returns to the empty search state", homeDelete.dateAfter === homeDelete.dateBefore && homeDelete.homeSearchVisible && homeDelete.selectedDateDeleted, JSON.stringify(homeDelete));
 check("Home deletion preserves other records and all settings", homeDelete.otherDatePreserved && homeDelete.settingsPreserved, JSON.stringify(homeDelete));
+
+const settingsTypography = await evaluate(`(() => {
+  document.querySelector('[data-route=settings]').click();
+  const result = {
+    labelWeight: getComputedStyle(document.querySelector('.settings-label')).fontWeight,
+    helpWeight: getComputedStyle(document.querySelector('.settings-help')).fontWeight,
+    inputWeight: getComputedStyle(document.querySelector('.text-input')).fontWeight
+  };
+  document.querySelector('[data-route=home]').click();
+  return result;
+})()`);
+check("Settings labels and helper text use clearer typography", Number(settingsTypography.labelWeight) >= 500 && Number(settingsTypography.helpWeight) >= 500 && Number(settingsTypography.inputWeight) >= 500, JSON.stringify(settingsTypography));
 
 const latestUpdate = await evaluate(`(async () => {
   const waitFor = async (predicate, timeout = 5000) => {
