@@ -248,9 +248,9 @@ const pwa = await evaluate(`(async () => {
   const data = await fetch(manifest).then((response) => response.json());
   const iconResponses = await Promise.all([...data.icons.map((icon) => icon.src), appleIcon].map((source) => fetch(source).then((response) => response.ok)));
   const serviceWorker = await fetch('./sw.js').then((response) => response.text());
-  return { manifest, favicon, appleIcon, iconResponses, cacheV8: serviceWorker.includes('moodio-shell-v8'), registration: Boolean(await navigator.serviceWorker.getRegistration()) };
+  return { manifest, favicon, appleIcon, iconResponses, cacheV9: serviceWorker.includes('moodio-shell-v9'), registration: Boolean(await navigator.serviceWorker.getRegistration()) };
 })()`);
-check("PWA manifest, icons, and current app cache load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.cacheV8 && pwa.registration, JSON.stringify(pwa));
+check("PWA manifest, icons, and current app cache load", pwa.manifest === "./manifest.webmanifest?v=5" && pwa.favicon.endsWith("?v=5") && pwa.appleIcon.includes("icon-180.png?v=5") && pwa.iconResponses.every(Boolean) && pwa.cacheV9 && pwa.registration, JSON.stringify(pwa));
 
 // The public Apple endpoint can occasionally be unavailable; report it separately.
 const search = await evaluate(`(async () => {
@@ -421,6 +421,98 @@ const homeDelete = await evaluate(`(async () => {
 check("Delete dialog changes immediately with the Korean language", homeDelete.label === "기록 삭제" && homeDelete.copy.title === "이 기록을 삭제할까요?" && homeDelete.copy.description === "삭제한 기록은 복구할 수 없어요." && homeDelete.copy.cancel === "취소" && homeDelete.copy.confirm === "삭제", JSON.stringify(homeDelete));
 check("Home deletion keeps the date and returns to the empty search state", homeDelete.dateAfter === homeDelete.dateBefore && homeDelete.homeSearchVisible && homeDelete.selectedDateDeleted, JSON.stringify(homeDelete));
 check("Home deletion preserves other records and all settings", homeDelete.otherDatePreserved && homeDelete.settingsPreserved, JSON.stringify(homeDelete));
+
+const latestUpdate = await evaluate(`(async () => {
+  const waitFor = async (predicate, timeout = 5000) => {
+    const started = Date.now();
+    while (!predicate()) {
+      if (Date.now() - started > timeout) throw new Error('Timed out waiting for update status');
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  };
+  const entriesBefore = localStorage.getItem('moodio.entries.v1');
+  const settingsBefore = localStorage.getItem('moodio.settings.v1');
+  await caches.open('moodio-preserve-test');
+  document.querySelector('#updateButton').click();
+  const checking = document.querySelector('#toast').textContent;
+  await waitFor(() => !document.querySelector('#updateButton').disabled);
+  const result = {
+    checking,
+    completed: document.querySelector('#toast').textContent,
+    entriesPreserved: localStorage.getItem('moodio.entries.v1') === entriesBefore,
+    settingsPreserved: localStorage.getItem('moodio.settings.v1') === settingsBefore,
+    cachePreserved: (await caches.keys()).includes('moodio-preserve-test'),
+    buttonIdle: !document.querySelector('#updateButton').classList.contains('is-spinning') && !document.querySelector('#updateButton').hasAttribute('aria-busy')
+  };
+  await caches.delete('moodio-preserve-test');
+  return result;
+})()`);
+check("Latest-version check reports accurately without reload or cache deletion", latestUpdate.checking === "새 버전을 확인하고 있어요..." && latestUpdate.completed === "이미 최신 버전이에요." && latestUpdate.entriesPreserved && latestUpdate.settingsPreserved && latestUpdate.cachePreserved && latestUpdate.buttonIdle, JSON.stringify(latestUpdate));
+
+const failedUpdate = await evaluate(`(async () => {
+  document.querySelector('[data-language=en]').click();
+  const container = navigator.serviceWorker;
+  const originalGetRegistration = container.getRegistration.bind(container);
+  Object.defineProperty(container, 'getRegistration', { configurable: true, value: async () => { throw new Error('Simulated update check failure'); } });
+  document.querySelector('#updateButton').click();
+  const checking = document.querySelector('#toast').textContent;
+  const started = Date.now();
+  while (document.querySelector('#updateButton').disabled) {
+    if (Date.now() - started > 2000) throw new Error('Timed out waiting for simulated update failure');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  const completed = document.querySelector('#toast').textContent;
+  Object.defineProperty(container, 'getRegistration', { configurable: true, value: originalGetRegistration });
+  return { checking, completed };
+})()`);
+check("Update-check failure has a distinct English status", failedUpdate.checking === "Checking for updates..." && failedUpdate.completed === "Couldn’t check for updates. Please try again.", JSON.stringify(failedUpdate));
+
+const availableUpdate = await evaluate(`(async () => {
+  const container = navigator.serviceWorker;
+  const originalGetRegistration = container.getRegistration.bind(container);
+  const worker = new EventTarget();
+  worker.state = 'installing';
+  worker.postMessage = () => setTimeout(() => {
+    worker.state = 'activated';
+    worker.dispatchEvent(new Event('statechange'));
+  }, 20);
+  const registration = new EventTarget();
+  registration.installing = null;
+  registration.waiting = null;
+  registration.update = async () => {
+    registration.installing = worker;
+    registration.dispatchEvent(new Event('updatefound'));
+    setTimeout(() => {
+      worker.state = 'installed';
+      registration.waiting = worker;
+      worker.dispatchEvent(new Event('statechange'));
+    }, 20);
+  };
+  Object.defineProperty(container, 'getRegistration', { configurable: true, value: async () => registration });
+  const entriesBefore = localStorage.getItem('moodio.entries.v1');
+  const settingsBefore = localStorage.getItem('moodio.settings.v1');
+  document.querySelector('#updateButton').click();
+  const checking = document.querySelector('#toast').textContent;
+  const statuses = [];
+  const started = Date.now();
+  while (document.querySelector('#toast').textContent !== 'Moodio has been updated.') {
+    const current = document.querySelector('#toast').textContent;
+    if (!statuses.includes(current)) statuses.push(current);
+    if (Date.now() - started > 2000) throw new Error('Timed out waiting for simulated update installation');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  const completed = document.querySelector('#toast').textContent;
+  Object.defineProperty(container, 'getRegistration', { configurable: true, value: originalGetRegistration });
+  return {
+    checking,
+    statuses,
+    completed,
+    entriesPreserved: localStorage.getItem('moodio.entries.v1') === entriesBefore,
+    settingsPreserved: localStorage.getItem('moodio.settings.v1') === settingsBefore
+  };
+})()`);
+check("Available update shows installing and completed states", availableUpdate.checking === "Checking for updates..." && availableUpdate.statuses.includes("Installing the latest version...") && availableUpdate.completed === "Moodio has been updated.", JSON.stringify(availableUpdate));
+check("Applying an available update preserves entries and settings", availableUpdate.entriesPreserved && availableUpdate.settingsPreserved, JSON.stringify(availableUpdate));
 
 const report = { passed: checks.filter((item) => item.passed).length, total: checks.length, checks };
 await writeFile(resolve("smoke-report.json"), JSON.stringify(report, null, 2));

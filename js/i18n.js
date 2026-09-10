@@ -15,7 +15,7 @@ export const translations = {
     invalidShare: "공유 링크가 올바르지 않거나 손상되었어요.", backToMoodio: "Moodio로 돌아가기",
     displayName: "표시 이름", displayNameHelp: "월별 공유 페이지 제목에 사용돼요.", displayNamePlaceholder: "이름을 입력하세요", settingsSaved: "설정을 저장했어요.",
     languageSetting: "언어", languageHelp: "앱의 모든 화면에 적용됩니다.", saveSettings: "설정 저장", defaultName: "나의",
-    checkingUpdates: "새 버전을 확인하고 있어요...", updated: "Moodio가 업데이트되었어요.", updateFailed: "업데이트를 확인하지 못했어요.",
+    checkingUpdates: "새 버전을 확인하고 있어요...", installingUpdate: "새 버전을 적용하고 있어요...", updated: "Moodio가 업데이트되었어요.", alreadyUpdated: "이미 최신 버전이에요.", updateFailed: "업데이트를 확인하지 못했어요. 잠시 후 다시 시도해주세요.",
     openInApple: "Apple Music에서 보기", recordCount: "{count}개의 기록", readonly: "읽기 전용", albumArtwork: "앨범아트 크게 보기",
     dateLocale: "ko-KR"
   },
@@ -35,7 +35,7 @@ export const translations = {
     invalidShare: "This share link is invalid or damaged.", backToMoodio: "Back to Moodio",
     displayName: "Display name", displayNameHelp: "Used in the title of your monthly share page.", displayNamePlaceholder: "Enter your name", settingsSaved: "Settings saved.",
     languageSetting: "Language", languageHelp: "Applied across every screen in the app.", saveSettings: "Save settings", defaultName: "My",
-    checkingUpdates: "Checking for updates...", updated: "Moodio is up to date.", updateFailed: "Could not check for updates.",
+    checkingUpdates: "Checking for updates...", installingUpdate: "Installing the latest version...", updated: "Moodio has been updated.", alreadyUpdated: "You’re already on the latest version.", updateFailed: "Couldn’t check for updates. Please try again.",
     openInApple: "Open in Apple Music", recordCount: "{count} entries", readonly: "Read only", albumArtwork: "Enlarge album artwork",
     dateLocale: "en-US"
   }

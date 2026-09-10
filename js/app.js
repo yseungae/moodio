@@ -16,6 +16,7 @@ const toast = document.querySelector("#toast");
 const artworkModal = document.querySelector("#artworkModal");
 const modalArtwork = document.querySelector("#modalArtwork");
 const audio = document.querySelector("#previewAudio");
+const pageServiceWorkerController = "serviceWorker" in navigator ? navigator.serviceWorker.controller : null;
 
 const today = localDateKey(new Date());
 const now = new Date();
@@ -37,6 +38,8 @@ const state = {
 
 let t = createTranslator(state.language);
 let toastTimer;
+let updateInProgress = false;
+let serviceWorkerRegistrationPromise;
 
 init();
 
@@ -545,31 +548,99 @@ function closeLanguageMenu() {
 }
 
 async function updateApp() {
+  if (updateInProgress) return;
+  updateInProgress = true;
   updateButton.classList.add("is-spinning");
+  updateButton.disabled = true;
+  updateButton.setAttribute("aria-busy", "true");
   showToast(t("checkingUpdates"), 8000);
+  let reloadScheduled = false;
+
   try {
-    if ("serviceWorker" in navigator) {
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (registration) {
-        await registration.update();
-        if (registration.waiting) registration.waiting.postMessage({ type: "SKIP_WAITING" });
-      }
+    if (!("serviceWorker" in navigator)) throw new Error("Service workers are unavailable");
+
+    const registration = await navigator.serviceWorker.getRegistration() || await registerServiceWorker();
+    if (!registration) throw new Error("Moodio service worker is not registered");
+
+    const pageControllerChanged = navigator.serviceWorker.controller !== pageServiceWorkerController;
+    let updatedWorker = registration.waiting || registration.installing;
+    if (!updatedWorker && !pageControllerChanged) updatedWorker = await findUpdatedWorker(registration);
+
+    if (!updatedWorker && !pageControllerChanged) {
+      showToast(t("alreadyUpdated"));
+      return;
     }
-    if ("caches" in window) {
-      const names = await caches.keys();
-      await Promise.all(names.filter((name) => name.startsWith("moodio-")).map((name) => caches.delete(name)));
-    }
+
+    showToast(t("installingUpdate"), 15000);
+    if (updatedWorker) await activateUpdatedWorker(registration, updatedWorker);
     showToast(t("updated"), 900);
     window.setTimeout(() => location.reload(), 950);
-  } catch {
-    updateButton.classList.remove("is-spinning");
+    reloadScheduled = true;
+  } catch (error) {
+    console.error("[Moodio] Update check failed", error);
     showToast(t("updateFailed"));
+  } finally {
+    if (reloadScheduled) return;
+    updateInProgress = false;
+    updateButton.classList.remove("is-spinning");
+    updateButton.disabled = false;
+    updateButton.removeAttribute("aria-busy");
   }
 }
 
-async function registerServiceWorker() {
-  if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
-  try { await navigator.serviceWorker.register("./sw.js", { scope: "./" }); } catch { /* The app still works online. */ }
+async function findUpdatedWorker(registration) {
+  let discoveredWorker = null;
+  const onUpdateFound = () => { discoveredWorker = registration.installing; };
+  registration.addEventListener("updatefound", onUpdateFound);
+  try {
+    await registration.update();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    return registration.waiting || registration.installing || discoveredWorker;
+  } finally {
+    registration.removeEventListener("updatefound", onUpdateFound);
+  }
+}
+
+async function activateUpdatedWorker(registration, worker) {
+  if (worker.state === "installing") {
+    await waitForWorkerState(worker, ["installed", "activated", "redundant"]);
+  }
+  if (worker.state === "redundant") throw new Error("The updated service worker became redundant");
+
+  const candidate = registration.waiting || worker;
+  if (candidate.state === "installed") candidate.postMessage({ type: "SKIP_WAITING" });
+  if (candidate.state !== "activated") {
+    const state = await waitForWorkerState(candidate, ["activated", "redundant"]);
+    if (state === "redundant") throw new Error("The updated service worker could not activate");
+  }
+}
+
+function waitForWorkerState(worker, expectedStates, timeout = 15000) {
+  if (expectedStates.includes(worker.state)) return Promise.resolve(worker.state);
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      worker.removeEventListener("statechange", onStateChange);
+      reject(new Error("Timed out while applying the updated service worker"));
+    }, timeout);
+    const onStateChange = () => {
+      if (!expectedStates.includes(worker.state)) return;
+      window.clearTimeout(timer);
+      worker.removeEventListener("statechange", onStateChange);
+      resolve(worker.state);
+    };
+    worker.addEventListener("statechange", onStateChange);
+  });
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator) || location.protocol === "file:") return Promise.resolve(null);
+  if (!serviceWorkerRegistrationPromise) {
+    serviceWorkerRegistrationPromise = navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch((error) => {
+      console.warn("[Moodio] Service worker registration failed", error);
+      return null;
+    });
+  }
+  return serviceWorkerRegistrationPromise;
 }
 
 function showToast(message, duration = 2600) {
